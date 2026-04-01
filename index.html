@@ -264,49 +264,58 @@
     text-underline-offset: 3px;
   }
 
-  /* ===== ROOM 2: SCRAMBLE ===== */
-  .scramble-card {
-    background: var(--surface);
-    border: 1px solid #333;
-    border-radius: 10px;
-    padding: 16px 20px;
-    margin-bottom: 10px;
-    transition: all 0.3s;
-  }
-  .scramble-card.solved { border-color: var(--green); background: rgba(0, 230, 118, 0.05); }
-  .scramble-card.wrong { border-color: #ff5252; }
-
-  .scramble-clue {
-    font-size: 0.8rem;
-    color: var(--text-dim);
-    margin-bottom: 8px;
-    font-style: italic;
+  /* ===== ROOM 2: MAZE ===== */
+  .maze-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
   }
 
-  .scramble-letters {
-    font-family: var(--mono);
-    font-size: 1.4rem;
-    font-weight: 800;
-    letter-spacing: 6px;
-    color: var(--red-glow);
-    margin-bottom: 10px;
-  }
-
-  .scramble-input {
-    width: 100%;
-    padding: 10px 14px;
-    background: var(--surface2);
+  #maze-canvas {
     border: 2px solid #444;
     border-radius: 8px;
-    color: var(--text);
-    font-size: 0.95rem;
-    font-family: var(--mono);
-    text-transform: uppercase;
-    transition: border-color 0.2s;
+    background: var(--surface);
+    max-width: 100%;
+    touch-action: none;
   }
-  .scramble-input:focus { outline: none; border-color: var(--red); }
-  .scramble-input:disabled { opacity: 0.6; }
-  .scramble-input.correct { border-color: var(--green); color: var(--green); }
+
+  .maze-controls {
+    display: grid;
+    grid-template-columns: repeat(3, 50px);
+    grid-template-rows: repeat(2, 50px);
+    gap: 6px;
+  }
+  .maze-controls button {
+    width: 50px;
+    height: 50px;
+    border-radius: 8px;
+    border: 1px solid #555;
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 1.3rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .maze-controls button:hover { border-color: var(--red); background: var(--red); }
+  .maze-controls button:active { transform: scale(0.9); }
+
+  .maze-legend {
+    display: flex;
+    gap: 20px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .maze-legend span { display: flex; align-items: center; gap: 5px; }
+
+  .move-counter {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
 
   /* ===== ROOM 3: LOGIC PUZZLE ===== */
   .clues-box {
@@ -555,20 +564,36 @@
   </div>
 </div>
 
-<!-- ===== ROOM 2: SCRAMBLED SCHEDULE ===== -->
+<!-- ===== ROOM 2: SCOTTY'S ESCAPE ===== -->
 <div id="room2" class="screen">
   <div class="room-content fade-in">
-    <div class="room-title">Room 2: The Scrambled Schedule</div>
+    <div class="room-title">Room 2: Scotty's Escape</div>
     <p class="room-flavor">
-      Someone spilled karak all over the weekly schedule and the words got scrambled!
-      Unscramble all 6 CMU-Q related words to unlock the next room.
+      Scotty is trapped in the freezing building and needs to reach the thermostat!
+      Guide him through the maze using arrow keys or the buttons below.
     </p>
     <button class="hint-btn" onclick="useHint(2)">
       <span>💡</span> Need a hint? (+60s)
     </button>
-    <div id="hint2" class="hint-text">Think about places, events, and things you encounter daily at CMU-Q. The clues describe each word.</div>
+    <div id="hint2" class="hint-text">Try going right first, then work your way down. The path isn't always the most direct route.</div>
 
-    <div id="scramble-list"></div>
+    <div class="maze-wrapper">
+      <div class="maze-legend">
+        <span>🐾 Scotty</span>
+        <span>🌡️ Thermostat</span>
+        <span style="color:#4fc3f7;">❄️ Ice (freezing AC!)</span>
+      </div>
+      <canvas id="maze-canvas" width="390" height="390"></canvas>
+      <div class="move-counter">Moves: <span id="move-count">0</span></div>
+      <div class="maze-controls">
+        <div></div>
+        <button onclick="moveScotty(0,-1)">▲</button>
+        <div></div>
+        <button onclick="moveScotty(-1,0)">◄</button>
+        <button onclick="moveScotty(0,1)">▼</button>
+        <button onclick="moveScotty(1,0)">►</button>
+      </div>
+    </div>
     <div class="feedback" id="room2-feedback"></div>
   </div>
 </div>
@@ -671,6 +696,10 @@
       <tr><td class="label">🥈 Silver</td><td style="color:var(--silver)">Under 8:00</td></tr>
       <tr><td class="label">🥉 Bronze</td><td style="color:var(--bronze)">Under 12:00</td></tr>
     </table>
+
+    <div style="font-family:var(--mono); font-size:0.8rem; color:var(--text-dim); margin:10px 0;">
+      <span id="start-stamp"></span> &nbsp;→&nbsp; <span id="end-stamp"></span>
+    </div>
 
     <div class="screenshot-box">
       <strong>📸 Screenshot this screen</strong> and email it to
@@ -833,69 +862,143 @@ function checkRoom1() {
   }
 }
 
-// ===== ROOM 2: SCRAMBLED SCHEDULE =====
-const scrambles = [
-  { answer: 'KARAK', scrambled: 'RAKAK', clue: 'The beloved tea that fuels every meeting at CMU-Q' },
-  { answer: 'MAJLIS', scrambled: 'JLSMAI', clue: 'A traditional gathering space — CMU-Q has a "Mini" one' },
-  { answer: 'FALCON', scrambled: 'LCFAON', clue: 'The mascot and pride of Qatar\'s national bird' },
-  { answer: 'CAMPUS', scrambled: 'PMCAUS', clue: 'The grounds where you spend most of your workday' },
-  { answer: 'FREEZING', scrambled: 'GZNIEERF', clue: 'What everyone says the AC makes the building feel like' },
-  { answer: 'SEMESTER', scrambled: 'MSEETRES', clue: 'The academic period that\'s almost — mercifully — over' },
+// ===== ROOM 2: SCOTTY'S MAZE =====
+// 0 = path, 1 = wall, 2 = ice (decoration)
+const CELL = 30;
+const mazeGrid = [
+  [0,0,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,1,0,0,0,1,0,0,0,1],
+  [1,0,1,0,1,0,1,0,0,0,1,0,1],
+  [1,0,1,0,0,0,1,1,1,0,1,0,1],
+  [1,0,1,1,1,0,0,0,1,0,1,0,1],
+  [1,0,0,0,1,1,1,0,1,0,0,0,1],
+  [1,1,1,0,0,0,0,0,1,1,1,0,1],
+  [1,0,0,0,1,1,1,0,0,0,0,0,1],
+  [1,0,1,0,0,0,1,1,1,1,1,0,1],
+  [1,0,1,1,1,0,0,0,0,0,1,0,1],
+  [1,0,0,0,1,1,1,1,1,0,1,0,1],
+  [1,1,1,0,0,0,0,0,0,0,0,0,0],
+  [1,1,1,1,1,1,1,1,1,1,1,1,0],
 ];
+const ROWS = mazeGrid.length;
+const COLS = mazeGrid[0].length;
+const scottyStart = { r: 0, c: 0 };
+const thermostat = { r: 12, c: 12 };
 
-let solvedCount = 0;
+// Ice decorations on certain wall cells
+const iceCells = [[0,4],[0,7],[0,10],[2,6],[4,2],[6,0],[6,9],[8,6],[10,4],[10,7]];
+
+let scottyPos = { ...scottyStart };
+let moveCount = 0;
+let mazeComplete = false;
 
 function buildRoom2() {
-  const list = document.getElementById('scramble-list');
-  list.innerHTML = '';
-  solvedCount = 0;
+  scottyPos = { ...scottyStart };
+  moveCount = 0;
+  mazeComplete = false;
+  document.getElementById('move-count').textContent = '0';
+  drawMaze();
 
-  scrambles.forEach((s, i) => {
-    const card = document.createElement('div');
-    card.className = 'scramble-card';
-    card.id = 'sc-' + i;
-    card.innerHTML = `
-      <div class="scramble-clue">${s.clue}</div>
-      <div class="scramble-letters">${s.scrambled}</div>
-      <input type="text" class="scramble-input" id="sc-input-${i}" placeholder="Type your answer..."
-        maxlength="${s.answer.length + 2}" data-idx="${i}"
-        onkeydown="if(event.key==='Enter') checkScramble(${i})"
-        oninput="checkScramble(${i})">
-    `;
-    list.appendChild(card);
-  });
+  // Keyboard controls
+  document.addEventListener('keydown', handleMazeKey);
+
+  // Touch/swipe controls
+  const canvas = document.getElementById('maze-canvas');
+  let touchStartX = 0, touchStartY = 0;
+  canvas.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  canvas.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      moveScotty(dx > 0 ? 1 : -1, 0);
+    } else {
+      moveScotty(0, dy > 0 ? 1 : -1);
+    }
+  }, { passive: true });
 }
 
-function checkScramble(idx) {
-  const input = document.getElementById('sc-input-' + idx);
-  const card = document.getElementById('sc-' + idx);
-  const guess = input.value.trim().toUpperCase();
+function handleMazeKey(e) {
+  if (mazeComplete) return;
+  if (state.currentRoom !== 2) return;
+  const map = { ArrowUp: [0,-1], ArrowDown: [0,1], ArrowLeft: [-1,0], ArrowRight: [1,0] };
+  if (map[e.key]) {
+    e.preventDefault();
+    moveScotty(map[e.key][0], map[e.key][1]);
+  }
+}
 
-  if (guess === scrambles[idx].answer) {
-    if (!card.classList.contains('solved')) {
-      solvedCount++;
-      card.classList.add('solved');
-      input.classList.add('correct');
-      input.disabled = true;
+function moveScotty(dc, dr) {
+  if (mazeComplete) return;
+  const nr = scottyPos.r + dr;
+  const nc = scottyPos.c + dc;
+  if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) return;
+  if (mazeGrid[nr][nc] === 1) return;
 
-      const fb = document.getElementById('room2-feedback');
-      if (solvedCount === scrambles.length) {
-        fb.className = 'feedback success';
-        fb.textContent = '✓ All words unscrambled! Moving to the next room...';
-        setTimeout(() => {
-          updateProgress(3);
-          buildRoom3();
-          showScreen('room3');
-        }, 1200);
+  scottyPos.r = nr;
+  scottyPos.c = nc;
+  moveCount++;
+  document.getElementById('move-count').textContent = moveCount;
+  drawMaze();
+
+  // Check win
+  if (scottyPos.r === thermostat.r && scottyPos.c === thermostat.c) {
+    mazeComplete = true;
+    const fb = document.getElementById('room2-feedback');
+    fb.className = 'feedback success';
+    fb.textContent = `✓ Scotty reached the thermostat in ${moveCount} moves! The building is saved!`;
+    setTimeout(() => {
+      updateProgress(3);
+      buildRoom3();
+      showScreen('room3');
+    }, 1500);
+  }
+}
+
+function drawMaze() {
+  const canvas = document.getElementById('maze-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = COLS * CELL;
+  canvas.height = ROWS * CELL;
+
+  // Draw cells
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const x = c * CELL;
+      const y = r * CELL;
+      if (mazeGrid[r][c] === 1) {
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(x, y, CELL, CELL);
+        // Ice decoration
+        if (iceCells.some(([ir, ic]) => ir === r && ic === c)) {
+          ctx.font = `${CELL * 0.6}px serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('❄️', x + CELL / 2, y + CELL / 2);
+        }
       } else {
-        fb.className = 'feedback success';
-        fb.textContent = `✓ Got it! ${solvedCount}/${scrambles.length} solved.`;
+        ctx.fillStyle = '#2a2a4a';
+        ctx.fillRect(x, y, CELL, CELL);
+        ctx.strokeStyle = '#333';
+        ctx.strokeRect(x, y, CELL, CELL);
       }
     }
-  } else if (guess.length === scrambles[idx].answer.length) {
-    card.classList.add('wrong');
-    setTimeout(() => card.classList.remove('wrong'), 400);
   }
+
+  // Draw thermostat
+  ctx.font = `${CELL * 0.7}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🌡️', thermostat.c * CELL + CELL / 2, thermostat.r * CELL + CELL / 2);
+
+  // Draw Scotty
+  ctx.font = `${CELL * 0.7}px serif`;
+  ctx.fillText('🐾', scottyPos.c * CELL + CELL / 2, scottyPos.r * CELL + CELL / 2);
+
+  // Visited trail (subtle)
 }
 
 // ===== ROOM 3: COFFEE CRISIS =====
@@ -1031,6 +1134,10 @@ function checkRoom4() {
 }
 
 // ===== VICTORY =====
+function formatTimestamp(date) {
+  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+}
+
 function showVictory() {
   document.getElementById('top-bar').classList.remove('visible');
   const totalTime = state.elapsed;
@@ -1049,6 +1156,12 @@ function showVictory() {
   const badge = document.getElementById('tier-badge');
   badge.textContent = tier === 'Completed' ? '🏁 Completed' : (tier === 'Gold' ? '🥇 ' : tier === 'Silver' ? '🥈 ' : '🥉 ') + tier;
   badge.className = 'tier-badge ' + tierClass;
+
+  // Show wall-clock timestamps (anti-cheat)
+  const startDate = new Date(state.startTime);
+  const endDate = new Date();
+  document.getElementById('start-stamp').textContent = 'Started: ' + formatTimestamp(startDate);
+  document.getElementById('end-stamp').textContent = 'Finished: ' + formatTimestamp(endDate);
 
   showScreen('victory');
   launchConfetti();
