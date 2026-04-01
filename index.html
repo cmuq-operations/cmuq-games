@@ -264,57 +264,43 @@
     text-underline-offset: 3px;
   }
 
-  /* ===== ROOM 2: MAZE ===== */
-  .maze-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
-  }
-
-  #maze-canvas {
-    border: 2px solid #444;
-    border-radius: 8px;
-    background: var(--surface);
-    max-width: 100%;
-    touch-action: none;
-  }
-
-  .maze-controls {
+  /* ===== ROOM 2: WIRING PUZZLE ===== */
+  .pipe-grid {
     display: grid;
-    grid-template-columns: repeat(3, 50px);
-    grid-template-rows: repeat(2, 50px);
-    gap: 6px;
+    gap: 4px;
+    margin-bottom: 15px;
   }
-  .maze-controls button {
-    width: 50px;
-    height: 50px;
+  .pipe-cell {
+    width: 80px; height: 80px;
+    background: var(--surface);
+    border: 2px solid #333;
     border-radius: 8px;
-    border: 1px solid #555;
-    background: var(--surface2);
-    color: var(--text);
-    font-size: 1.3rem;
     cursor: pointer;
-    transition: all 0.15s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    position: relative;
   }
-  .maze-controls button:hover { border-color: var(--red); background: var(--red); }
-  .maze-controls button:active { transform: scale(0.9); }
-
-  .maze-legend {
-    display: flex;
-    gap: 20px;
+  .pipe-cell:hover { border-color: #666; transform: scale(1.03); }
+  .pipe-cell:active { transform: scale(0.97); }
+  .pipe-cell.connected { border-color: var(--green); background: rgba(0,230,118,0.05); }
+  .pipe-cell.source { border-color: var(--red-glow); background: rgba(196,18,48,0.1); }
+  .pipe-cell.target { border-color: #4fc3f7; background: rgba(79,195,247,0.1); }
+  .pipe-cell canvas { width: 100%; height: 100%; }
+  .pipe-label {
+    position: absolute;
+    top: 2px;
+    font-size: 14px;
+    z-index: 1;
+  }
+  .pipe-label.left { left: 4px; }
+  .pipe-label.right { right: 4px; }
+  .pipe-info {
     font-size: 0.8rem;
     color: var(--text-dim);
+    margin-bottom: 10px;
   }
-  .maze-legend span { display: flex; align-items: center; gap: 5px; }
-
-  .move-counter {
-    font-family: var(--mono);
-    font-size: 0.85rem;
-    color: var(--text-dim);
+  @media (max-width: 400px) {
+    .pipe-cell { width: 65px; height: 65px; }
   }
 
   /* ===== ROOM 3: LOGIC PUZZLE ===== */
@@ -564,36 +550,21 @@
   </div>
 </div>
 
-<!-- ===== ROOM 2: SCOTTY'S ESCAPE ===== -->
+<!-- ===== ROOM 2: THE WIRING PUZZLE ===== -->
 <div id="room2" class="screen">
   <div class="room-content fade-in">
-    <div class="room-title">Room 2: Scotty's Escape</div>
+    <div class="room-title">Room 2: The Wiring Puzzle</div>
     <p class="room-flavor">
-      Scotty is trapped in the freezing building and needs to reach the thermostat!
-      Guide him through the maze using arrow keys or the buttons below.
+      The heating system is broken! Click the pipe segments to rotate them
+      and connect a path from the 🔥 Boiler to the 🌡️ Thermostat.
     </p>
     <button class="hint-btn" onclick="useHint(2)">
       <span>💡</span> Need a hint? (+60s)
     </button>
-    <div id="hint2" class="hint-text">Try going right first, then work your way down. The path isn't always the most direct route.</div>
+    <div id="hint2" class="hint-text">Start from the boiler (top-left) and work outward. Green cells are already connected — focus on the gray ones next to them.</div>
 
-    <div class="maze-wrapper">
-      <div class="maze-legend">
-        <span>🐾 Scotty</span>
-        <span>🌡️ Thermostat</span>
-        <span style="color:#4fc3f7;">❄️ Ice (freezing AC!)</span>
-      </div>
-      <canvas id="maze-canvas" width="390" height="390"></canvas>
-      <div class="move-counter">Moves: <span id="move-count">0</span></div>
-      <div class="maze-controls">
-        <div></div>
-        <button onclick="moveScotty(0,-1)">▲</button>
-        <div></div>
-        <button onclick="moveScotty(-1,0)">◄</button>
-        <button onclick="moveScotty(0,1)">▼</button>
-        <button onclick="moveScotty(1,0)">►</button>
-      </div>
-    </div>
+    <p class="pipe-info">Click any pipe to rotate it 90°</p>
+    <div id="pipe-board" class="pipe-grid"></div>
     <div class="feedback" id="room2-feedback"></div>
   </div>
 </div>
@@ -862,143 +833,153 @@ function checkRoom1() {
   }
 }
 
-// ===== ROOM 2: SCOTTY'S MAZE =====
-// 0 = path, 1 = wall, 2 = ice (decoration)
-const CELL = 30;
-const mazeGrid = [
-  [0,0,1,1,1,1,1,1,1,1,1,1,1],
-  [1,0,0,0,1,0,0,0,1,0,0,0,1],
-  [1,0,1,0,1,0,1,0,0,0,1,0,1],
-  [1,0,1,0,0,0,1,1,1,0,1,0,1],
-  [1,0,1,1,1,0,0,0,1,0,1,0,1],
-  [1,0,0,0,1,1,1,0,1,0,0,0,1],
-  [1,1,1,0,0,0,0,0,1,1,1,0,1],
-  [1,0,0,0,1,1,1,0,0,0,0,0,1],
-  [1,0,1,0,0,0,1,1,1,1,1,0,1],
-  [1,0,1,1,1,0,0,0,0,0,1,0,1],
-  [1,0,0,0,1,1,1,1,1,0,1,0,1],
-  [1,1,1,0,0,0,0,0,0,0,0,0,0],
-  [1,1,1,1,1,1,1,1,1,1,1,1,0],
+// ===== ROOM 2: WIRING PUZZLE =====
+const PIPE_SIZE = 4;
+// Pipe types and their solution rotations
+const pipeSolutionTypes = [
+  ['elbow','straight','elbow','elbow'],
+  ['elbow','elbow','tee','straight'],
+  ['straight','elbow','elbow','straight'],
+  ['elbow','straight','straight','elbow'],
 ];
-const ROWS = mazeGrid.length;
-const COLS = mazeGrid[0].length;
-const scottyStart = { r: 0, c: 0 };
-const thermostat = { r: 12, c: 12 };
+const pipeSolutionRots = [
+  [2,1,3,2],
+  [1,0,2,0],
+  [0,3,1,0],
+  [1,1,0,0],
+];
 
-// Ice decorations on certain wall cells
-const iceCells = [[0,4],[0,7],[0,10],[2,6],[4,2],[6,0],[6,9],[8,6],[10,4],[10,7]];
+let pipeGrid = [];
+let pipeSolved = false;
 
-let scottyPos = { ...scottyStart };
-let moveCount = 0;
-let mazeComplete = false;
+function getPipeConnections(type, rotation) {
+  let base;
+  switch(type) {
+    case 'straight': base = [1,0,1,0]; break;
+    case 'elbow': base = [1,1,0,0]; break;
+    case 'tee': base = [1,1,1,0]; break;
+    case 'cross': base = [1,1,1,1]; break;
+    default: base = [0,0,0,0];
+  }
+  const conn = [...base];
+  for (let i = 0; i < rotation; i++) { conn.unshift(conn.pop()); }
+  return conn; // [top, right, bottom, left]
+}
+
+function getConnectedPipes() {
+  const visited = new Set();
+  const queue = ['0,0'];
+  visited.add('0,0');
+  const dirs = [[-1,0,0,2],[0,1,1,3],[1,0,2,0],[0,-1,3,1]];
+
+  while (queue.length > 0) {
+    const [r, c] = queue.shift().split(',').map(Number);
+    const myConn = getPipeConnections(pipeGrid[r][c].type, pipeGrid[r][c].rotation);
+    dirs.forEach(([dr, dc, myDir, theirDir]) => {
+      const nr = r + dr, nc = c + dc;
+      if (nr < 0 || nr >= PIPE_SIZE || nc < 0 || nc >= PIPE_SIZE) return;
+      const key = `${nr},${nc}`;
+      if (visited.has(key)) return;
+      const theirConn = getPipeConnections(pipeGrid[nr][nc].type, pipeGrid[nr][nc].rotation);
+      if (myConn[myDir] && theirConn[theirDir]) {
+        visited.add(key);
+        queue.push(key);
+      }
+    });
+  }
+  return visited;
+}
+
+function drawPipe(canvas, type, rotation, isConnected) {
+  const ctx = canvas.getContext('2d');
+  const w = 80, h = 80, mid = 40, pw = 14;
+  ctx.clearRect(0, 0, w, h);
+  const conn = getPipeConnections(type, rotation);
+  ctx.strokeStyle = isConnected ? '#00e676' : '#666';
+  ctx.lineWidth = pw;
+  ctx.lineCap = 'round';
+  const endpoints = [[mid,0],[w,mid],[mid,h],[0,mid]];
+  ctx.beginPath();
+  conn.forEach((c, i) => {
+    if (c) { ctx.moveTo(mid, mid); ctx.lineTo(endpoints[i][0], endpoints[i][1]); }
+  });
+  ctx.stroke();
+  ctx.fillStyle = isConnected ? '#00e676' : '#888';
+  ctx.beginPath();
+  ctx.arc(mid, mid, 5, 0, Math.PI * 2);
+  ctx.fill();
+}
 
 function buildRoom2() {
-  scottyPos = { ...scottyStart };
-  moveCount = 0;
-  mazeComplete = false;
-  document.getElementById('move-count').textContent = '0';
-  drawMaze();
-
-  // Keyboard controls
-  document.addEventListener('keydown', handleMazeKey);
-
-  // Touch/swipe controls
-  const canvas = document.getElementById('maze-canvas');
-  let touchStartX = 0, touchStartY = 0;
-  canvas.addEventListener('touchstart', (e) => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-  canvas.addEventListener('touchend', (e) => {
-    const dx = e.changedTouches[0].clientX - touchStartX;
-    const dy = e.changedTouches[0].clientY - touchStartY;
-    if (Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
-    if (Math.abs(dx) > Math.abs(dy)) {
-      moveScotty(dx > 0 ? 1 : -1, 0);
-    } else {
-      moveScotty(0, dy > 0 ? 1 : -1);
+  pipeSolved = false;
+  pipeGrid = [];
+  for (let r = 0; r < PIPE_SIZE; r++) {
+    pipeGrid[r] = [];
+    for (let c = 0; c < PIPE_SIZE; c++) {
+      pipeGrid[r][c] = {
+        type: pipeSolutionTypes[r][c],
+        rotation: Math.floor(Math.random() * 4),
+      };
     }
-  }, { passive: true });
-}
-
-function handleMazeKey(e) {
-  if (mazeComplete) return;
-  if (state.currentRoom !== 2) return;
-  const map = { ArrowUp: [0,-1], ArrowDown: [0,1], ArrowLeft: [-1,0], ArrowRight: [1,0] };
-  if (map[e.key]) {
-    e.preventDefault();
-    moveScotty(map[e.key][0], map[e.key][1]);
   }
-}
-
-function moveScotty(dc, dr) {
-  if (mazeComplete) return;
-  const nr = scottyPos.r + dr;
-  const nc = scottyPos.c + dc;
-  if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) return;
-  if (mazeGrid[nr][nc] === 1) return;
-
-  scottyPos.r = nr;
-  scottyPos.c = nc;
-  moveCount++;
-  document.getElementById('move-count').textContent = moveCount;
-  drawMaze();
-
-  // Check win
-  if (scottyPos.r === thermostat.r && scottyPos.c === thermostat.c) {
-    mazeComplete = true;
-    const fb = document.getElementById('room2-feedback');
-    fb.className = 'feedback success';
-    fb.textContent = `✓ Scotty reached the thermostat in ${moveCount} moves! The building is saved!`;
-    setTimeout(() => {
-      updateProgress(3);
-      buildRoom3();
-      showScreen('room3');
-    }, 1500);
+  // Ensure not already solved
+  if (getConnectedPipes().has(`${PIPE_SIZE-1},${PIPE_SIZE-1}`)) {
+    pipeGrid[0][0].rotation = (pipeGrid[0][0].rotation + 1) % 4;
   }
+  renderPipes();
 }
 
-function drawMaze() {
-  const canvas = document.getElementById('maze-canvas');
-  const ctx = canvas.getContext('2d');
-  canvas.width = COLS * CELL;
-  canvas.height = ROWS * CELL;
+function renderPipes() {
+  const board = document.getElementById('pipe-board');
+  board.innerHTML = '';
+  board.style.gridTemplateColumns = `repeat(${PIPE_SIZE}, 80px)`;
+  const connected = getConnectedPipes();
 
-  // Draw cells
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const x = c * CELL;
-      const y = r * CELL;
-      if (mazeGrid[r][c] === 1) {
-        ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(x, y, CELL, CELL);
-        // Ice decoration
-        if (iceCells.some(([ir, ic]) => ir === r && ic === c)) {
-          ctx.font = `${CELL * 0.6}px serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('❄️', x + CELL / 2, y + CELL / 2);
-        }
-      } else {
-        ctx.fillStyle = '#2a2a4a';
-        ctx.fillRect(x, y, CELL, CELL);
-        ctx.strokeStyle = '#333';
-        ctx.strokeRect(x, y, CELL, CELL);
+  for (let r = 0; r < PIPE_SIZE; r++) {
+    for (let c = 0; c < PIPE_SIZE; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'pipe-cell';
+      if (r === 0 && c === 0) cell.classList.add('source');
+      if (r === PIPE_SIZE-1 && c === PIPE_SIZE-1) cell.classList.add('target');
+      if (connected.has(`${r},${c}`)) cell.classList.add('connected');
+
+      const cvs = document.createElement('canvas');
+      cvs.width = 80; cvs.height = 80;
+      cell.appendChild(cvs);
+      drawPipe(cvs, pipeGrid[r][c].type, pipeGrid[r][c].rotation, connected.has(`${r},${c}`));
+
+      if (r === 0 && c === 0) {
+        const lbl = document.createElement('div');
+        lbl.className = 'pipe-label left';
+        lbl.textContent = '🔥';
+        cell.appendChild(lbl);
       }
+      if (r === PIPE_SIZE-1 && c === PIPE_SIZE-1) {
+        const lbl = document.createElement('div');
+        lbl.className = 'pipe-label right';
+        lbl.textContent = '🌡️';
+        cell.appendChild(lbl);
+      }
+
+      cell.addEventListener('click', () => {
+        if (pipeSolved) return;
+        pipeGrid[r][c].rotation = (pipeGrid[r][c].rotation + 1) % 4;
+        renderPipes();
+        if (getConnectedPipes().has(`${PIPE_SIZE-1},${PIPE_SIZE-1}`)) {
+          pipeSolved = true;
+          const fb = document.getElementById('room2-feedback');
+          fb.className = 'feedback success';
+          fb.textContent = '✓ The heating is back on! Building saved!';
+          setTimeout(() => {
+            updateProgress(3);
+            buildRoom3();
+            showScreen('room3');
+          }, 1500);
+        }
+      });
+      board.appendChild(cell);
     }
   }
-
-  // Draw thermostat
-  ctx.font = `${CELL * 0.7}px serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('🌡️', thermostat.c * CELL + CELL / 2, thermostat.r * CELL + CELL / 2);
-
-  // Draw Scotty
-  ctx.font = `${CELL * 0.7}px serif`;
-  ctx.fillText('🐾', scottyPos.c * CELL + CELL / 2, scottyPos.r * CELL + CELL / 2);
-
-  // Visited trail (subtle)
 }
 
 // ===== ROOM 3: COFFEE CRISIS =====
