@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operation: Semester Survival | CMU-Q</title>
+<style>
+  /* ===== RESET & BASE ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --surface2: #222240;
+    --red: #C41230;
+    --red-glow: #ff1a44;
+    --gold: #FFD700;
+    --silver: #C0C0C0;
+    --bronze: #CD7F32;
+    --green: #00e676;
+    --text: #e0e0e0;
+    --text-dim: #888;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Courier New', monospace;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== LAYOUT ===== */
+  .screen { display: none; min-height: 100vh; padding: 20px; }
+  .screen.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+  /* ===== TOP BAR (timer + progress) ===== */
+  #top-bar {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-bottom: 2px solid var(--red);
+    padding: 10px 20px;
+    z-index: 100;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+  }
+  #top-bar.visible { display: flex; }
+
+  #timer {
+    font-family: var(--mono);
+    font-size: 1.4rem;
+    color: var(--red-glow);
+    font-weight: bold;
+    min-width: 80px;
+  }
+
+  #progress-bar-container {
+    flex: 1;
+    max-width: 400px;
+    height: 8px;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  #progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--red), var(--red-glow));
+    width: 0%;
+    transition: width 0.5s ease;
+    border-radius: 4px;
+  }
+
+  #room-label {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    min-width: 80px;
+    text-align: right;
+  }
+
+  /* ===== LANDING PAGE ===== */
+  #landing { text-align: center; }
+
+  .title {
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--red-glow), #ff6b6b, var(--red));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+    letter-spacing: -1px;
+  }
+
+  .subtitle {
+    font-size: clamp(0.9rem, 2.5vw, 1.15rem);
+    color: var(--text-dim);
+    max-width: 550px;
+    line-height: 1.6;
+    margin: 0 auto 30px;
+  }
+
+  .rules-box {
+    background: var(--surface);
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 20px 30px;
+    max-width: 480px;
+    margin: 0 auto 30px;
+    text-align: left;
+  }
+  .rules-box h3 { color: var(--red-glow); margin-bottom: 10px; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px; }
+  .rules-box ul { list-style: none; }
+  .rules-box li { padding: 5px 0; font-size: 0.9rem; color: var(--text-dim); }
+  .rules-box li::before { content: '>' ; color: var(--red); margin-right: 8px; font-family: var(--mono); }
+
+  .btn {
+    display: inline-block;
+    padding: 14px 40px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--red), var(--red-glow));
+    color: white;
+    box-shadow: 0 4px 20px rgba(196, 18, 48, 0.4);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 30px rgba(196, 18, 48, 0.6); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-sm {
+    padding: 8px 20px;
+    font-size: 0.85rem;
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid #444;
+  }
+  .btn-outline:hover { border-color: var(--red); color: var(--text); }
+
+  /* ===== ROOM COMMON ===== */
+  .room-content {
+    max-width: 700px;
+    width: 100%;
+    padding-top: 70px;
+  }
+
+  .room-title {
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    font-weight: 800;
+    margin-bottom: 5px;
+    color: var(--red-glow);
+  }
+
+  .room-flavor {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  .hint-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--surface2);
+    color: var(--text-dim);
+    border: 1px solid #444;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-bottom: 20px;
+    transition: all 0.2s;
+  }
+  .hint-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .hint-btn.used { opacity: 0.5; cursor: default; }
+
+  .hint-text {
+    background: rgba(255, 215, 0, 0.1);
+    border-left: 3px solid var(--gold);
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    font-size: 0.85rem;
+    color: var(--gold);
+    border-radius: 0 6px 6px 0;
+    display: none;
+  }
+  .hint-text.visible { display: block; }
+
+  .answer-section {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .answer-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 2px solid #333;
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 1rem;
+    font-family: var(--mono);
+    transition: border-color 0.2s;
+  }
+  .answer-input:focus { outline: none; border-color: var(--red); }
+
+  .feedback {
+    font-size: 0.85rem;
+    margin-top: 10px;
+    min-height: 1.2em;
+  }
+  .feedback.error { color: #ff5252; }
+  .feedback.success { color: var(--green); }
+
+  /* ===== ROOM 1: INBOX ===== */
+  .email-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+
+  .email-item {
+    background: var(--surface);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .email-item:hover { border-color: #555; }
+  .email-item.expanded .email-body { display: block; }
+
+  .email-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .email-from { font-weight: 600; font-size: 0.85rem; color: var(--text); }
+  .email-subject { font-size: 0.9rem; color: var(--text-dim); flex: 1; }
+  .email-time { font-size: 0.75rem; color: var(--text-dim); }
+  .email-body {
+    display: none;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #333;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .email-body .hl {
+    color: var(--red-glow);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* ===== ROOM 2: HEADLINES ===== */
+  .headline-card {
+    background: var(--surface);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.3s;
+  }
+  .headline-card.correct { border-color: var(--green); background: rgba(0, 230, 118, 0.05); }
+  .headline-card.wrong { border-color: #ff5252; background: rgba(255, 82, 82, 0.05); }
+
+  .headline-text { flex: 1; font-size: 0.9rem; line-height: 1.4; }
+
+  .headline-btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .headline-btns button {
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    border: 1px solid #555;
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+  }
+  .headline-btns button:hover { border-color: var(--red); }
+  .headline-btns button.selected-real { background: var(--green); color: #000; border-color: var(--green); }
+  .headline-btns button.selected-fake { background: #ff5252; color: #fff; border-color: #ff5252; }
+  .headline-btns button:disabled { opacity: 0.6; cursor: default; }
+
+  .headline-result { margin-top: 15px; padding: 12px; border-radius: 8px; text-align: center; font-weight: 600; }
+
+  /* ===== ROOM 3: LOGIC PUZZLE ===== */
+  .clues-box {
+    background: var(--surface);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+  }
+  .clues-box h4 { color: var(--red-glow); margin-bottom: 10px; font-size: 0.9rem; }
+  .clues-box ol { padding-left: 20px; }
+  .clues-box li { font-size: 0.85rem; color: var(--text-dim); padding: 3px 0; line-height: 1.5; }
+
+  .logic-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+  @media (max-width: 500px) { .logic-grid { grid-template-columns: 1fr; } }
+
+  .logic-person {
+    background: var(--surface);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .logic-person h4 { font-size: 0.9rem; color: var(--text); margin-bottom: 8px; }
+  .logic-person label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3px; }
+  .logic-person select {
+    width: 100%;
+    padding: 8px;
+    background: var(--surface2);
+    border: 1px solid #444;
+    color: var(--text);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+  }
+
+  /* ===== ROOM 4: LOCK ===== */
+  .lock-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 25px;
+  }
+
+  .lock-visual {
+    background: var(--surface);
+    border: 2px solid #444;
+    border-radius: 16px;
+    padding: 30px 40px;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+  }
+
+  .dial {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .dial-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+  .dial-btn {
+    background: var(--surface2);
+    border: 1px solid #555;
+    color: var(--text);
+    width: 36px;
+    height: 30px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .dial-btn:hover { border-color: var(--red); background: var(--red); color: #fff; }
+  .dial-display {
+    font-family: var(--mono);
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: var(--red-glow);
+    width: 50px;
+    text-align: center;
+    user-select: none;
+  }
+
+  .lock-clues {
+    background: var(--surface);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 16px 20px;
+    max-width: 500px;
+    width: 100%;
+  }
+  .lock-clues h4 { color: var(--red-glow); margin-bottom: 10px; font-size: 0.9rem; }
+  .lock-clues li { font-size: 0.85rem; color: var(--text-dim); padding: 4px 0; line-height: 1.5; }
+
+  /* ===== VICTORY ===== */
+  #victory { text-align: center; position: relative; overflow: hidden; }
+
+  .victory-time {
+    font-family: var(--mono);
+    font-size: clamp(2.5rem, 8vw, 4rem);
+    font-weight: 900;
+    margin: 15px 0;
+  }
+  .victory-time.gold { color: var(--gold); text-shadow: 0 0 30px rgba(255, 215, 0, 0.4); }
+  .victory-time.silver { color: var(--silver); text-shadow: 0 0 30px rgba(192, 192, 192, 0.4); }
+  .victory-time.bronze { color: var(--bronze); text-shadow: 0 0 30px rgba(205, 127, 50, 0.4); }
+  .victory-time.none { color: var(--text); }
+
+  .tier-badge {
+    display: inline-block;
+    padding: 8px 24px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
+  .tier-badge.gold { background: rgba(255, 215, 0, 0.15); color: var(--gold); border: 2px solid var(--gold); }
+  .tier-badge.silver { background: rgba(192, 192, 192, 0.15); color: var(--silver); border: 2px solid var(--silver); }
+  .tier-badge.bronze { background: rgba(205, 127, 50, 0.15); color: var(--bronze); border: 2px solid var(--bronze); }
+  .tier-badge.none { background: rgba(255,255,255,0.05); color: var(--text-dim); border: 2px solid #555; }
+
+  .tier-table {
+    margin: 20px auto;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  .tier-table td { padding: 6px 16px; }
+  .tier-table .label { color: var(--text-dim); text-align: right; }
+
+  .victory-msg {
+    font-size: 1rem;
+    color: var(--text-dim);
+    margin: 15px 0;
+    max-width: 400px;
+    line-height: 1.5;
+  }
+
+  .screenshot-box {
+    background: var(--surface);
+    border: 2px dashed #444;
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 420px;
+    margin: 20px auto 0;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .screenshot-box strong { color: var(--text); }
+
+  /* ===== CONFETTI ===== */
+  .confetti-piece {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    top: -10px;
+    z-index: 200;
+    opacity: 0;
+    animation: confetti-fall linear forwards;
+  }
+  @keyframes confetti-fall {
+    0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+    100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
+  }
+
+  /* ===== ANIMATIONS ===== */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in { animation: fadeIn 0.5s ease forwards; }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+  .shake { animation: shake 0.3s ease; }
+
+  @keyframes pulse-green {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.4); }
+    50% { box-shadow: 0 0 20px 5px rgba(0, 230, 118, 0.2); }
+  }
+  .pulse-green { animation: pulse-green 0.6s ease; }
+</style>
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<div id="top-bar">
+  <div id="timer">00:00</div>
+  <div id="progress-bar-container"><div id="progress-bar"></div></div>
+  <div id="room-label">Room 1 / 4</div>
+</div>
+
+<!-- ===== LANDING ===== -->
+<div id="landing" class="screen active">
+  <div class="fade-in">
+    <div class="title">Operation: Semester Survival</div>
+    <p class="subtitle">
+      The semester is almost over. The building is freezing. The coffee machine is judging you.
+      Can you escape in time?
+    </p>
+    <div class="rules-box">
+      <h3>Mission Briefing</h3>
+      <ul>
+        <li>Solve 4 rooms to escape the semester</li>
+        <li>Your time is being tracked — fastest 5 win merch</li>
+        <li>Hints are available but add +60 seconds to your time</li>
+        <li>Screenshot your final score and email it to claim your prize</li>
+      </ul>
+    </div>
+    <button class="btn btn-primary" onclick="startGame()">Begin Escape</button>
+  </div>
+</div>
+
+<!-- ===== ROOM 1: INBOX OF DOOM ===== -->
+<div id="room1" class="screen">
+  <div class="room-content fade-in">
+    <div class="room-title">Room 1: The Inbox of Doom</div>
+    <p class="room-flavor">
+      Your inbox has exploded. Somewhere in these emails, a secret code is hidden.
+      Click each email and look for the <span style="color:var(--red-glow); font-weight:700;">highlighted letters</span> — unscramble them to find the password.
+    </p>
+    <button class="hint-btn" onclick="useHint(1)">
+      <span>💡</span> Need a hint? (+60s)
+    </button>
+    <div id="hint1" class="hint-text">The highlighted letters spell a word related to what everyone at CMU-Q desperately needs. Read them in order from top to bottom.</div>
+
+    <div class="email-list" id="email-list"></div>
+
+    <div class="answer-section">
+      <input type="text" class="answer-input" id="room1-answer" placeholder="Enter the secret code..." maxlength="20" onkeydown="if(event.key==='Enter') checkRoom1()">
+      <button class="btn btn-primary btn-sm" onclick="checkRoom1()">Submit</button>
+    </div>
+    <div class="feedback" id="room1-feedback"></div>
+  </div>
+</div>
+
+<!-- ===== ROOM 2: HEADLINE HUSTLE ===== -->
+<div id="room2" class="screen">
+  <div class="room-content fade-in">
+    <div class="room-title">Room 2: The Headline Hustle</div>
+    <p class="room-flavor">
+      It's hard to tell what's real anymore. Classify each headline as REAL or FAKE.
+      You need at least 6 out of 8 correct to move on.
+    </p>
+    <button class="hint-btn" onclick="useHint(2)">
+      <span>💡</span> Need a hint? (+60s)
+    </button>
+    <div id="hint2" class="hint-text">The CMU-Q specific ones are almost all fake. Real headlines tend to be the surprising global/science facts.</div>
+
+    <div id="headline-list"></div>
+    <div style="text-align:center; margin-top:15px;">
+      <button class="btn btn-primary btn-sm" onclick="checkRoom2()" id="room2-submit" disabled>Check Answers</button>
+    </div>
+    <div class="feedback" id="room2-feedback"></div>
+  </div>
+</div>
+
+<!-- ===== ROOM 3: COFFEE CRISIS ===== -->
+<div id="room3" class="screen">
+  <div class="room-content fade-in">
+    <div class="room-title">Room 3: The Coffee Crisis</div>
+    <p class="room-flavor">
+      The coffee machine is working for once, but 4 people are in line and nobody remembers their order.
+      Use the clues to figure out who ordered what.
+    </p>
+    <button class="hint-btn" onclick="useHint(3)">
+      <span>💡</span> Need a hint? (+60s)
+    </button>
+    <div id="hint3" class="hint-text">Start with the clues that give you direct answers (clues 1 and 5). Then use elimination.</div>
+
+    <div class="clues-box">
+      <h4>Clues</h4>
+      <ol>
+        <li>The person from the <strong>Moot Boardroom</strong> ordered a <strong>Karak</strong>.</li>
+        <li>Sara does not work in the <strong>Assembly Area</strong> and did not order an <strong>Americano</strong>.</li>
+        <li>The <strong>Cappuccino</strong> was ordered by whoever works in the <strong>Community Garden</strong>.</li>
+        <li>Ahmed works in the <strong>Mini Majlis</strong>.</li>
+        <li>Fatima ordered a <strong>Latte</strong>.</li>
+        <li>Khalid does not work in the <strong>Community Garden</strong>.</li>
+      </ol>
+    </div>
+
+    <p style="font-size:0.85rem; color:var(--text-dim); margin-bottom:10px;">Assign each person their location and drink:</p>
+    <div class="logic-grid" id="logic-grid"></div>
+
+    <div style="text-align:center;">
+      <button class="btn btn-primary btn-sm" onclick="checkRoom3()">Submit Answers</button>
+    </div>
+    <div class="feedback" id="room3-feedback"></div>
+  </div>
+</div>
+
+<!-- ===== ROOM 4: FINAL LOCK ===== -->
+<div id="room4" class="screen">
+  <div class="room-content fade-in">
+    <div class="lock-container">
+      <div class="room-title">Room 4: The Final Lock</div>
+      <p class="room-flavor">
+        One last lock stands between you and freedom. The code is 3 digits.
+        The clues were hidden in the previous rooms — think back carefully.
+      </p>
+      <button class="hint-btn" onclick="useHint(4)">
+        <span>💡</span> Need a hint? (+60s)
+      </button>
+      <div id="hint4" class="hint-text">Digit 1: How many emails were in your inbox? Digit 2: How many FAKE headlines were there? Digit 3: How many people were in the coffee line?</div>
+
+      <div class="lock-clues">
+        <h4>Remember...</h4>
+        <ul style="list-style:none;">
+          <li>🔢 First digit: The number of emails in your inbox</li>
+          <li>🔢 Second digit: The number of FAKE headlines you found</li>
+          <li>🔢 Third digit: The number of people waiting for coffee</li>
+        </ul>
+      </div>
+
+      <div class="lock-visual">
+        <div class="dial">
+          <div class="dial-label">1st</div>
+          <button class="dial-btn" onclick="changeDial(0,1)">▲</button>
+          <div class="dial-display" id="dial0">0</div>
+          <button class="dial-btn" onclick="changeDial(0,-1)">▼</button>
+        </div>
+        <div class="dial">
+          <div class="dial-label">2nd</div>
+          <button class="dial-btn" onclick="changeDial(1,1)">▲</button>
+          <div class="dial-display" id="dial1">0</div>
+          <button class="dial-btn" onclick="changeDial(1,-1)">▼</button>
+        </div>
+        <div class="dial">
+          <div class="dial-label">3rd</div>
+          <button class="dial-btn" onclick="changeDial(2,1)">▲</button>
+          <div class="dial-display" id="dial2">0</div>
+          <button class="dial-btn" onclick="changeDial(2,-1)">▼</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="checkRoom4()">Unlock</button>
+      <div class="feedback" id="room4-feedback"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== VICTORY ===== -->
+<div id="victory" class="screen">
+  <div class="fade-in">
+    <div class="title" style="font-size: clamp(1.5rem, 5vw, 2.5rem);">🎉 You Escaped! 🎉</div>
+    <p class="victory-msg">You survived the semester. Your final time:</p>
+    <div class="victory-time" id="final-time">00:00</div>
+    <div id="tier-badge" class="tier-badge">—</div>
+
+    <table class="tier-table">
+      <tr><td class="label">🥇 Gold</td><td style="color:var(--gold)">Under 5:00</td></tr>
+      <tr><td class="label">🥈 Silver</td><td style="color:var(--silver)">Under 8:00</td></tr>
+      <tr><td class="label">🥉 Bronze</td><td style="color:var(--bronze)">Under 12:00</td></tr>
+    </table>
+
+    <div class="screenshot-box">
+      <strong>📸 Screenshot this screen</strong> and email it to
+      <strong>[newsletter-email@cmu.edu]</strong> to claim your prize!<br><br>
+      Top 5 fastest times win CMU-Q merch. Good luck!
+    </div>
+
+    <p style="margin-top:25px; color:var(--text-dim); font-size:0.9rem;">
+      Now go get some karak. You've earned it. ☕
+    </p>
+
+    <button class="btn btn-outline btn-sm" style="margin-top:15px;" onclick="location.reload()">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ===== GAME STATE =====
+const state = {
+  startTime: null,
+  elapsed: 0,
+  penalty: 0,
+  timerInterval: null,
+  currentRoom: 0,
+  hintsUsed: [false, false, false, false],
+  dials: [0, 0, 0],
+  headlineAnswers: {},
+};
+
+// ===== TIMER =====
+function startTimer() {
+  state.startTime = Date.now();
+  state.timerInterval = setInterval(updateTimer, 100);
+}
+
+function updateTimer() {
+  state.elapsed = Math.floor((Date.now() - state.startTime) / 1000) + state.penalty;
+  const m = Math.floor(state.elapsed / 60);
+  const s = state.elapsed % 60;
+  document.getElementById('timer').textContent =
+    String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+function stopTimer() {
+  clearInterval(state.timerInterval);
+}
+
+function formatTime(totalSec) {
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+// ===== SCREEN MANAGEMENT =====
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function updateProgress(room) {
+  state.currentRoom = room;
+  document.getElementById('progress-bar').style.width = (room / 4 * 100) + '%';
+  document.getElementById('room-label').textContent = `Room ${room} / 4`;
+}
+
+// ===== HINTS =====
+function useHint(room) {
+  const idx = room - 1;
+  if (state.hintsUsed[idx]) return;
+  state.hintsUsed[idx] = true;
+  state.penalty += 60;
+  document.getElementById('hint' + room).classList.add('visible');
+  const btn = document.querySelector(`#room${room} .hint-btn`);
+  btn.classList.add('used');
+  btn.textContent = '💡 Hint revealed (+60s added)';
+}
+
+// ===== START GAME =====
+function startGame() {
+  startTimer();
+  document.getElementById('top-bar').classList.add('visible');
+  updateProgress(1);
+  buildRoom1();
+  showScreen('room1');
+}
+
+// ===== ROOM 1: INBOX OF DOOM =====
+const emails = [
+  {
+    from: 'Facilities Management',
+    subject: 'RE: AC Temperature Adjustment Request #847',
+    time: '8:02 AM',
+    body: 'Dear all, we have received your <span class="hl">K</span>ind request regarding the temperature. After careful review, we regret to inform you that the current setting of 16°C is "within acceptable parameters." We suggest wearing layers. Regards, Facilities.'
+  },
+  {
+    from: 'Karak Konnections',
+    subject: 'This Week\'s Karak Meetup — Don\'t Miss Out!',
+    time: '9:15 AM',
+    body: 'Join us this Thursday for our w<span class="hl">A</span>rm karak session in the Mini Majlis! This week\'s topic: "Is the coffee machine actually haunted?" Snacks provided. RSVP by Wednesday.'
+  },
+  {
+    from: 'IT Support',
+    subject: 'Printer on 2nd Floor — Status Update',
+    time: '9:47 AM',
+    body: 'The p<span class="hl">R</span>inter on the 2nd floor is currently experiencing "existential issues" and will be offline until further notice. Please use the 3rd floor printer. We apologize for the inconvenience.'
+  },
+  {
+    from: 'Campus Events',
+    subject: 'End of Semester Celebration — Save the Date!',
+    time: '10:30 AM',
+    body: 'Mark your c<span class="hl">A</span>lendars! The end-of-semester celebration will take place on April 24th in the Assembly Area. There will be food, music, and an award for "Most Emails Sent This Semester."'
+  },
+  {
+    from: 'Parking Services',
+    subject: 'Parking Lot B — Temporarily Closed',
+    time: '11:12 AM',
+    body: 'Due to schedu<span class="hl">K</span>ed maintenance, Parking Lot B will be closed from April 3-5. Alternative parking is available in Lot D. We know this is inconvenient. We know you\'ll email us about it anyway.'
+  },
+];
+
+// Answer: KARAK (hidden letters spell it out top to bottom)
+
+function buildRoom1() {
+  const list = document.getElementById('email-list');
+  list.innerHTML = '';
+  emails.forEach((e, i) => {
+    const div = document.createElement('div');
+    div.className = 'email-item';
+    div.innerHTML = `
+      <div class="email-header">
+        <span class="email-from">${e.from}</span>
+        <span class="email-time">${e.time}</span>
+      </div>
+      <div class="email-header" style="margin-top:4px;">
+        <span class="email-subject">${e.subject}</span>
+      </div>
+      <div class="email-body">${e.body}</div>
+    `;
+    div.addEventListener('click', () => div.classList.toggle('expanded'));
+    list.appendChild(div);
+  });
+}
+
+function checkRoom1() {
+  const answer = document.getElementById('room1-answer').value.trim().toUpperCase();
+  const fb = document.getElementById('room1-feedback');
+  if (answer === 'KARAK') {
+    fb.className = 'feedback success';
+    fb.textContent = '✓ Correct! The code is KARAK. Moving to the next room...';
+    document.querySelector('#room1 .answer-input').style.borderColor = 'var(--green)';
+    setTimeout(() => {
+      updateProgress(2);
+      buildRoom2();
+      showScreen('room2');
+    }, 1200);
+  } else {
+    fb.className = 'feedback error';
+    fb.textContent = '✗ That\'s not right. Look for the highlighted letters in each email.';
+    document.querySelector('#room1 .room-content').classList.add('shake');
+    setTimeout(() => document.querySelector('#room1 .room-content').classList.remove('shake'), 300);
+  }
+}
+
+// ===== ROOM 2: HEADLINE HUSTLE =====
+const headlines = [
+  { text: 'CMU-Q Installs Heated Floors After 47th Complaint About AC', real: false },
+  { text: 'Qatar Has an Indoor, Air-Conditioned Pedestrian Network Planned for Doha', real: true },
+  { text: 'Karak Konnections Now Officially Counts as a 3-Unit Credit Course', real: false },
+  { text: 'Carnegie Mellon\'s Original Campus Has a Fence That Students Paint as a Form of Free Speech', real: true },
+  { text: 'Coffee Machine in Building 1 Gains Sentience, Refuses to Make Decaf', real: false },
+  { text: 'An Octopus Has Three Hearts and Blue Blood', real: true },
+  { text: 'CMU-Q Community Garden Wins International Award for "Best Office Oasis"', real: false },
+  { text: 'Honey Never Spoils — Archaeologists Found 3,000-Year-Old Honey in Egyptian Tombs That Was Still Edible', real: true },
+];
+// 4 fake, 4 real → answer for Room 4 digit 2 = 4
+
+function buildRoom2() {
+  const list = document.getElementById('headline-list');
+  list.innerHTML = '';
+  state.headlineAnswers = {};
+
+  headlines.forEach((h, i) => {
+    const card = document.createElement('div');
+    card.className = 'headline-card';
+    card.id = 'hl-' + i;
+    card.innerHTML = `
+      <div class="headline-text">${h.text}</div>
+      <div class="headline-btns">
+        <button onclick="selectHeadline(${i}, true, this)">Real</button>
+        <button onclick="selectHeadline(${i}, false, this)">Fake</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function selectHeadline(idx, isReal, btn) {
+  state.headlineAnswers[idx] = isReal;
+  const card = document.getElementById('hl-' + idx);
+  const btns = card.querySelectorAll('.headline-btns button');
+  btns.forEach(b => { b.className = ''; });
+  btn.className = isReal ? 'selected-real' : 'selected-fake';
+
+  // Enable submit if all answered
+  if (Object.keys(state.headlineAnswers).length === headlines.length) {
+    document.getElementById('room2-submit').disabled = false;
+  }
+}
+
+function checkRoom2() {
+  let correct = 0;
+  headlines.forEach((h, i) => {
+    const card = document.getElementById('hl-' + i);
+    const userAnswer = state.headlineAnswers[i];
+    if (userAnswer === h.real) {
+      correct++;
+      card.className = 'headline-card correct';
+    } else {
+      card.className = 'headline-card wrong';
+    }
+  });
+
+  const fb = document.getElementById('room2-feedback');
+  if (correct >= 6) {
+    fb.className = 'feedback success';
+    fb.textContent = `✓ You got ${correct}/8 correct! Nice work. Moving on...`;
+    // Disable further interaction
+    document.querySelectorAll('.headline-btns button').forEach(b => b.disabled = true);
+    setTimeout(() => {
+      updateProgress(3);
+      buildRoom3();
+      showScreen('room3');
+    }, 1500);
+  } else {
+    fb.className = 'feedback error';
+    fb.textContent = `✗ You got ${correct}/8. You need at least 6. Try again!`;
+    // Reset after a moment
+    setTimeout(() => {
+      headlines.forEach((h, i) => {
+        document.getElementById('hl-' + i).className = 'headline-card';
+      });
+      state.headlineAnswers = {};
+      document.getElementById('room2-submit').disabled = true;
+      document.querySelectorAll('.headline-btns button').forEach(b => b.className = '');
+      fb.textContent = '';
+    }, 2000);
+  }
+}
+
+// ===== ROOM 3: COFFEE CRISIS =====
+/*
+  Solution:
+  - Khalid  | Moot Boardroom   | Karak
+  - Ahmed   | Mini Majlis      | Americano
+  - Sara    | Community Garden  | Cappuccino
+  - Fatima  | Assembly Area    | Latte
+
+  Clues:
+  1. Moot Boardroom person → Karak
+  2. Sara ≠ Assembly Area, Sara ≠ Americano
+  3. Community Garden person → Cappuccino
+  4. Ahmed → Mini Majlis
+  5. Fatima → Latte
+  6. Khalid ≠ Community Garden
+
+  Deduction:
+  - From 4: Ahmed = Mini Majlis
+  - From 5: Fatima = Latte
+  - From 1: Moot Boardroom = Karak → not Ahmed (Mini Majlis), so Moot Boardroom is Khalid, Sara, or Fatima
+  - From 6: Khalid ≠ Community Garden → Khalid = Moot Boardroom or Assembly Area
+  - From 3: Community Garden = Cappuccino → not Khalid (from 6), not Ahmed (Mini Majlis)
+     → Community Garden is Sara or Fatima
+  - From 5: Fatima = Latte, but Community Garden = Cappuccino → Fatima ≠ Community Garden
+     → Sara = Community Garden = Cappuccino
+  - From 2: Sara ≠ Assembly Area ✓ (she's Community Garden)
+  - Remaining locations: Moot Boardroom, Assembly Area for Khalid and Fatima
+  - From 1: Moot Boardroom = Karak. Fatima = Latte ≠ Karak → Fatima ≠ Moot Boardroom
+     → Khalid = Moot Boardroom = Karak
+     → Fatima = Assembly Area = Latte
+  - Ahmed = Mini Majlis, remaining drink = Americano ✓
+  - From 2: Sara ≠ Americano ✓ (she has Cappuccino)
+*/
+
+const people = ['Khalid', 'Ahmed', 'Sara', 'Fatima'];
+const locations = ['Moot Boardroom', 'Mini Majlis', 'Community Garden', 'Assembly Area'];
+const drinks = ['Karak', 'Americano', 'Cappuccino', 'Latte'];
+
+const room3Solution = {
+  'Khalid':  { location: 'Moot Boardroom', drink: 'Karak' },
+  'Ahmed':   { location: 'Mini Majlis', drink: 'Americano' },
+  'Sara':    { location: 'Community Garden', drink: 'Cappuccino' },
+  'Fatima':  { location: 'Assembly Area', drink: 'Latte' },
+};
+
+function buildRoom3() {
+  const grid = document.getElementById('logic-grid');
+  grid.innerHTML = '';
+
+  people.forEach(person => {
+    const div = document.createElement('div');
+    div.className = 'logic-person';
+    div.innerHTML = `
+      <h4>${person}</h4>
+      <label>Location:</label>
+      <select id="loc-${person}">
+        <option value="">— Select —</option>
+        ${locations.map(l => `<option value="${l}">${l}</option>`).join('')}
+      </select>
+      <label>Drink:</label>
+      <select id="drink-${person}">
+        <option value="">— Select —</option>
+        ${drinks.map(d => `<option value="${d}">${d}</option>`).join('')}
+      </select>
+    `;
+    grid.appendChild(div);
+  });
+}
+
+function checkRoom3() {
+  let allCorrect = true;
+  let allFilled = true;
+
+  people.forEach(person => {
+    const loc = document.getElementById('loc-' + person).value;
+    const drink = document.getElementById('drink-' + person).value;
+    if (!loc || !drink) allFilled = false;
+    if (loc !== room3Solution[person].location || drink !== room3Solution[person].drink) {
+      allCorrect = false;
+    }
+  });
+
+  const fb = document.getElementById('room3-feedback');
+
+  if (!allFilled) {
+    fb.className = 'feedback error';
+    fb.textContent = '✗ Please fill in all fields before submitting.';
+    return;
+  }
+
+  if (allCorrect) {
+    fb.className = 'feedback success';
+    fb.textContent = '✓ Perfect! Everyone gets their coffee. On to the final room...';
+    setTimeout(() => {
+      updateProgress(4);
+      showScreen('room4');
+    }, 1200);
+  } else {
+    fb.className = 'feedback error';
+    fb.textContent = '✗ Something\'s not right. Re-read the clues carefully!';
+    document.querySelector('#room3 .room-content').classList.add('shake');
+    setTimeout(() => document.querySelector('#room3 .room-content').classList.remove('shake'), 300);
+  }
+}
+
+// ===== ROOM 4: FINAL LOCK =====
+// Code: 5 (emails), 4 (fake headlines), 4 (people in coffee line)
+
+function changeDial(idx, delta) {
+  state.dials[idx] = (state.dials[idx] + delta + 10) % 10;
+  document.getElementById('dial' + idx).textContent = state.dials[idx];
+}
+
+function checkRoom4() {
+  const code = state.dials.join('');
+  const fb = document.getElementById('room4-feedback');
+
+  if (code === '544') {
+    fb.className = 'feedback success';
+    fb.textContent = '✓ CLICK. The lock opens!';
+    stopTimer();
+    setTimeout(() => {
+      showVictory();
+    }, 1000);
+  } else {
+    fb.className = 'feedback error';
+    fb.textContent = '✗ The lock doesn\'t budge. Think about what you encountered in each room.';
+    document.querySelector('.lock-visual').classList.add('shake');
+    setTimeout(() => document.querySelector('.lock-visual').classList.remove('shake'), 300);
+  }
+}
+
+// ===== VICTORY =====
+function showVictory() {
+  document.getElementById('top-bar').classList.remove('visible');
+  const totalTime = state.elapsed;
+  const timeStr = formatTime(totalTime);
+
+  let tier, tierClass;
+  if (totalTime < 300) { tier = 'Gold'; tierClass = 'gold'; }
+  else if (totalTime < 480) { tier = 'Silver'; tierClass = 'silver'; }
+  else if (totalTime < 720) { tier = 'Bronze'; tierClass = 'bronze'; }
+  else { tier = 'Completed'; tierClass = 'none'; }
+
+  const timeEl = document.getElementById('final-time');
+  timeEl.textContent = timeStr;
+  timeEl.className = 'victory-time ' + tierClass;
+
+  const badge = document.getElementById('tier-badge');
+  badge.textContent = tier === 'Completed' ? '🏁 Completed' : (tier === 'Gold' ? '🥇 ' : tier === 'Silver' ? '🥈 ' : '🥉 ') + tier;
+  badge.className = 'tier-badge ' + tierClass;
+
+  showScreen('victory');
+  launchConfetti();
+}
+
+function launchConfetti() {
+  const colors = ['#C41230', '#FFD700', '#00e676', '#ff6b6b', '#4fc3f7', '#ba68c8', '#ff8a65'];
+  for (let i = 0; i < 80; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + 'vw';
+    piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.width = (Math.random() * 8 + 5) + 'px';
+    piece.style.height = (Math.random() * 8 + 5) + 'px';
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    piece.style.animationDuration = (Math.random() * 2 + 2) + 's';
+    piece.style.animationDelay = (Math.random() * 2) + 's';
+    document.body.appendChild(piece);
+    setTimeout(() => piece.remove(), 5000);
+  }
+}
+</script>
+</body>
+</html>
