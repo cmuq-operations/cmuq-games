@@ -264,42 +264,49 @@
     text-underline-offset: 3px;
   }
 
-  /* ===== ROOM 2: HEADLINES ===== */
-  .headline-card {
+  /* ===== ROOM 2: SCRAMBLE ===== */
+  .scramble-card {
     background: var(--surface);
     border: 1px solid #333;
     border-radius: 10px;
     padding: 16px 20px;
     margin-bottom: 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 15px;
     transition: all 0.3s;
   }
-  .headline-card.correct { border-color: var(--green); background: rgba(0, 230, 118, 0.05); }
-  .headline-card.wrong { border-color: #ff5252; background: rgba(255, 82, 82, 0.05); }
+  .scramble-card.solved { border-color: var(--green); background: rgba(0, 230, 118, 0.05); }
+  .scramble-card.wrong { border-color: #ff5252; }
 
-  .headline-text { flex: 1; font-size: 0.9rem; line-height: 1.4; }
-
-  .headline-btns { display: flex; gap: 6px; flex-shrink: 0; }
-  .headline-btns button {
-    padding: 6px 14px;
+  .scramble-clue {
     font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid #555;
-    background: var(--surface2);
-    color: var(--text);
-    cursor: pointer;
-    transition: all 0.2s;
-    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    font-style: italic;
   }
-  .headline-btns button:hover { border-color: var(--red); }
-  .headline-btns button.selected-real { background: var(--green); color: #000; border-color: var(--green); }
-  .headline-btns button.selected-fake { background: #ff5252; color: #fff; border-color: #ff5252; }
-  .headline-btns button:disabled { opacity: 0.6; cursor: default; }
 
-  .headline-result { margin-top: 15px; padding: 12px; border-radius: 8px; text-align: center; font-weight: 600; }
+  .scramble-letters {
+    font-family: var(--mono);
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: 6px;
+    color: var(--red-glow);
+    margin-bottom: 10px;
+  }
+
+  .scramble-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 2px solid #444;
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    transition: border-color 0.2s;
+  }
+  .scramble-input:focus { outline: none; border-color: var(--red); }
+  .scramble-input:disabled { opacity: 0.6; }
+  .scramble-input.correct { border-color: var(--green); color: var(--green); }
 
   /* ===== ROOM 3: LOGIC PUZZLE ===== */
   .clues-box {
@@ -548,23 +555,20 @@
   </div>
 </div>
 
-<!-- ===== ROOM 2: HEADLINE HUSTLE ===== -->
+<!-- ===== ROOM 2: SCRAMBLED SCHEDULE ===== -->
 <div id="room2" class="screen">
   <div class="room-content fade-in">
-    <div class="room-title">Room 2: The Headline Hustle</div>
+    <div class="room-title">Room 2: The Scrambled Schedule</div>
     <p class="room-flavor">
-      It's hard to tell what's real anymore. Classify each headline as REAL or FAKE.
-      You need at least 6 out of 8 correct to move on.
+      Someone spilled karak all over the weekly schedule and the words got scrambled!
+      Unscramble all 6 CMU-Q related words to unlock the next room.
     </p>
     <button class="hint-btn" onclick="useHint(2)">
       <span>💡</span> Need a hint? (+60s)
     </button>
-    <div id="hint2" class="hint-text">The CMU-Q specific ones are almost all fake. Real headlines tend to be the surprising global/science facts.</div>
+    <div id="hint2" class="hint-text">Think about places, events, and things you encounter daily at CMU-Q. The clues describe each word.</div>
 
-    <div id="headline-list"></div>
-    <div style="text-align:center; margin-top:15px;">
-      <button class="btn btn-primary btn-sm" onclick="checkRoom2()" id="room2-submit" disabled>Check Answers</button>
-    </div>
+    <div id="scramble-list"></div>
     <div class="feedback" id="room2-feedback"></div>
   </div>
 </div>
@@ -604,26 +608,26 @@
   </div>
 </div>
 
-<!-- ===== ROOM 4: FINAL LOCK ===== -->
+<!-- ===== ROOM 4: THE FINAL LOCK ===== -->
 <div id="room4" class="screen">
   <div class="room-content fade-in">
     <div class="lock-container">
       <div class="room-title">Room 4: The Final Lock</div>
       <p class="room-flavor">
-        One last lock stands between you and freedom. The code is 3 digits.
-        The clues were hidden in the previous rooms — think back carefully.
+        One last lock stands between you and freedom. Solve each riddle to find a digit.
+        Combine all three digits to crack the code.
       </p>
       <button class="hint-btn" onclick="useHint(4)">
         <span>💡</span> Need a hint? (+60s)
       </button>
-      <div id="hint4" class="hint-text">Digit 1: How many emails were in your inbox? Digit 2: How many FAKE headlines were there? Digit 3: How many people were in the coffee line?</div>
+      <div id="hint4" class="hint-text">Riddle 1: Think of a word that means a group of 4 musicians. Riddle 2: There are 7 continents, subtract 2. Riddle 3: What do you get when you halve a dozen?</div>
 
       <div class="lock-clues">
-        <h4>Remember...</h4>
+        <h4>Riddles</h4>
         <ul style="list-style:none;">
-          <li>🔢 First digit: The number of emails in your inbox</li>
-          <li>🔢 Second digit: The number of FAKE headlines you found</li>
-          <li>🔢 Third digit: The number of people waiting for coffee</li>
+          <li style="margin-bottom:12px;">🔢 <strong>First digit:</strong> How many musicians are in a quartet?</li>
+          <li style="margin-bottom:12px;">🔢 <strong>Second digit:</strong> How many continents are there on Earth minus two?</li>
+          <li style="margin-bottom:12px;">🔢 <strong>Third digit:</strong> What is half of a dozen?</li>
         </ul>
       </div>
 
@@ -670,7 +674,7 @@
 
     <div class="screenshot-box">
       <strong>📸 Screenshot this screen</strong> and email it to
-      <strong>[newsletter-email@cmu.edu]</strong> to claim your prize!<br><br>
+      <strong>falconweekly@andrew.cmu.edu</strong> to claim your prize!<br><br>
       Top 5 fastest times win CMU-Q merch. Good luck!
     </div>
 
@@ -692,7 +696,6 @@ const state = {
   currentRoom: 0,
   hintsUsed: [false, false, false, false],
   dials: [0, 0, 0],
-  headlineAnswers: {},
 };
 
 // ===== TIMER =====
@@ -830,89 +833,68 @@ function checkRoom1() {
   }
 }
 
-// ===== ROOM 2: HEADLINE HUSTLE =====
-const headlines = [
-  { text: 'CMU-Q Installs Heated Floors After 47th Complaint About AC', real: false },
-  { text: 'Qatar Has an Indoor, Air-Conditioned Pedestrian Network Planned for Doha', real: true },
-  { text: 'Karak Konnections Now Officially Counts as a 3-Unit Credit Course', real: false },
-  { text: 'Carnegie Mellon\'s Original Campus Has a Fence That Students Paint as a Form of Free Speech', real: true },
-  { text: 'Coffee Machine in Building 1 Gains Sentience, Refuses to Make Decaf', real: false },
-  { text: 'An Octopus Has Three Hearts and Blue Blood', real: true },
-  { text: 'CMU-Q Community Garden Wins International Award for "Best Office Oasis"', real: false },
-  { text: 'Honey Never Spoils — Archaeologists Found 3,000-Year-Old Honey in Egyptian Tombs That Was Still Edible', real: true },
+// ===== ROOM 2: SCRAMBLED SCHEDULE =====
+const scrambles = [
+  { answer: 'KARAK', scrambled: 'RAKAK', clue: 'The beloved tea that fuels every meeting at CMU-Q' },
+  { answer: 'MAJLIS', scrambled: 'JLSMAI', clue: 'A traditional gathering space — CMU-Q has a "Mini" one' },
+  { answer: 'FALCON', scrambled: 'LCFAON', clue: 'The mascot and pride of Qatar\'s national bird' },
+  { answer: 'CAMPUS', scrambled: 'PMCAUS', clue: 'The grounds where you spend most of your workday' },
+  { answer: 'FREEZING', scrambled: 'GZNIEERF', clue: 'What everyone says the AC makes the building feel like' },
+  { answer: 'SEMESTER', scrambled: 'MSEETRES', clue: 'The academic period that\'s almost — mercifully — over' },
 ];
-// 4 fake, 4 real → answer for Room 4 digit 2 = 4
+
+let solvedCount = 0;
 
 function buildRoom2() {
-  const list = document.getElementById('headline-list');
+  const list = document.getElementById('scramble-list');
   list.innerHTML = '';
-  state.headlineAnswers = {};
+  solvedCount = 0;
 
-  headlines.forEach((h, i) => {
+  scrambles.forEach((s, i) => {
     const card = document.createElement('div');
-    card.className = 'headline-card';
-    card.id = 'hl-' + i;
+    card.className = 'scramble-card';
+    card.id = 'sc-' + i;
     card.innerHTML = `
-      <div class="headline-text">${h.text}</div>
-      <div class="headline-btns">
-        <button onclick="selectHeadline(${i}, true, this)">Real</button>
-        <button onclick="selectHeadline(${i}, false, this)">Fake</button>
-      </div>
+      <div class="scramble-clue">${s.clue}</div>
+      <div class="scramble-letters">${s.scrambled}</div>
+      <input type="text" class="scramble-input" id="sc-input-${i}" placeholder="Type your answer..."
+        maxlength="${s.answer.length + 2}" data-idx="${i}"
+        onkeydown="if(event.key==='Enter') checkScramble(${i})"
+        oninput="checkScramble(${i})">
     `;
     list.appendChild(card);
   });
 }
 
-function selectHeadline(idx, isReal, btn) {
-  state.headlineAnswers[idx] = isReal;
-  const card = document.getElementById('hl-' + idx);
-  const btns = card.querySelectorAll('.headline-btns button');
-  btns.forEach(b => { b.className = ''; });
-  btn.className = isReal ? 'selected-real' : 'selected-fake';
+function checkScramble(idx) {
+  const input = document.getElementById('sc-input-' + idx);
+  const card = document.getElementById('sc-' + idx);
+  const guess = input.value.trim().toUpperCase();
 
-  // Enable submit if all answered
-  if (Object.keys(state.headlineAnswers).length === headlines.length) {
-    document.getElementById('room2-submit').disabled = false;
-  }
-}
+  if (guess === scrambles[idx].answer) {
+    if (!card.classList.contains('solved')) {
+      solvedCount++;
+      card.classList.add('solved');
+      input.classList.add('correct');
+      input.disabled = true;
 
-function checkRoom2() {
-  let correct = 0;
-  headlines.forEach((h, i) => {
-    const card = document.getElementById('hl-' + i);
-    const userAnswer = state.headlineAnswers[i];
-    if (userAnswer === h.real) {
-      correct++;
-      card.className = 'headline-card correct';
-    } else {
-      card.className = 'headline-card wrong';
+      const fb = document.getElementById('room2-feedback');
+      if (solvedCount === scrambles.length) {
+        fb.className = 'feedback success';
+        fb.textContent = '✓ All words unscrambled! Moving to the next room...';
+        setTimeout(() => {
+          updateProgress(3);
+          buildRoom3();
+          showScreen('room3');
+        }, 1200);
+      } else {
+        fb.className = 'feedback success';
+        fb.textContent = `✓ Got it! ${solvedCount}/${scrambles.length} solved.`;
+      }
     }
-  });
-
-  const fb = document.getElementById('room2-feedback');
-  if (correct >= 6) {
-    fb.className = 'feedback success';
-    fb.textContent = `✓ You got ${correct}/8 correct! Nice work. Moving on...`;
-    // Disable further interaction
-    document.querySelectorAll('.headline-btns button').forEach(b => b.disabled = true);
-    setTimeout(() => {
-      updateProgress(3);
-      buildRoom3();
-      showScreen('room3');
-    }, 1500);
-  } else {
-    fb.className = 'feedback error';
-    fb.textContent = `✗ You got ${correct}/8. You need at least 6. Try again!`;
-    // Reset after a moment
-    setTimeout(() => {
-      headlines.forEach((h, i) => {
-        document.getElementById('hl-' + i).className = 'headline-card';
-      });
-      state.headlineAnswers = {};
-      document.getElementById('room2-submit').disabled = true;
-      document.querySelectorAll('.headline-btns button').forEach(b => b.className = '');
-      fb.textContent = '';
-    }, 2000);
+  } else if (guess.length === scrambles[idx].answer.length) {
+    card.classList.add('wrong');
+    setTimeout(() => card.classList.remove('wrong'), 400);
   }
 }
 
@@ -1022,7 +1004,7 @@ function checkRoom3() {
 }
 
 // ===== ROOM 4: FINAL LOCK =====
-// Code: 5 (emails), 4 (fake headlines), 4 (people in coffee line)
+// Code: 4 (quartet), 5 (7 continents - 2), 6 (half of dozen)
 
 function changeDial(idx, delta) {
   state.dials[idx] = (state.dials[idx] + delta + 10) % 10;
@@ -1033,7 +1015,7 @@ function checkRoom4() {
   const code = state.dials.join('');
   const fb = document.getElementById('room4-feedback');
 
-  if (code === '544') {
+  if (code === '456') {
     fb.className = 'feedback success';
     fb.textContent = '✓ CLICK. The lock opens!';
     stopTimer();
@@ -1042,7 +1024,7 @@ function checkRoom4() {
     }, 1000);
   } else {
     fb.className = 'feedback error';
-    fb.textContent = '✗ The lock doesn\'t budge. Think about what you encountered in each room.';
+    fb.textContent = '✗ The lock doesn\'t budge. Read the riddles carefully!';
     document.querySelector('.lock-visual').classList.add('shake');
     setTimeout(() => document.querySelector('.lock-visual').classList.remove('shake'), 300);
   }
