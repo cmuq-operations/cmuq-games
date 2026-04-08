@@ -33,11 +33,11 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
-const W = 800, H = 480;
+const W = 1600, H = 960;
 canvas.width = W;
 canvas.height = H;
 
-const T = 32; // tile size
+const T = 64; // tile size (2x for high-res)
 
 // ============================================================
 // LEVEL DATA — 4 levels, 75 tiles wide x 15 tiles tall
@@ -143,7 +143,7 @@ function loadLevel(idx) {
 // ============================================================
 let gameState = 'title'; // title, levelIntro, playing, bossFight, bossDefeated, gameover, victory
 let score = 0;
-let lives = 3;
+let lives = 5;
 let camera = { x: 0 };
 let frameCount = 0;
 let levelIntroTimer = 0;
@@ -162,8 +162,8 @@ window.addEventListener('keyup', e => { keys[e.code] = false; });
 // PLAYER
 // ============================================================
 const player = {
-  x: 64, y: 0,
-  w: 24, h: 28,
+  x: 128, y: 0,
+  w: 48, h: 56,
   vx: 0, vy: 0,
   onGround: false,
   facing: 1,
@@ -178,7 +178,7 @@ const player = {
 };
 
 function resetPlayer() {
-  player.x = 64;
+  player.x = 128;
   player.y = 12 * T - player.h;
   player.vx = 0;
   player.vy = 0;
@@ -214,16 +214,16 @@ function initEntities() {
     for (let c = 0; c < LEVEL_W; c++) {
       const tile = level[r][c];
       if (tile === 3) {
-        collectibles.push({ x: c * T + 4, y: r * T + 4, w: 24, h: 24, collected: false, bobOffset: Math.random() * Math.PI * 2 });
+        collectibles.push({ x: c * T + 8, y: r * T + 8, w: 48, h: 48, collected: false, bobOffset: Math.random() * Math.PI * 2 });
         level[r][c] = 0;
       } else if (tile === 4) {
         enemies.push({
-          x: c * T, y: r * T + 4, w: 28, h: 28,
-          vx: -1 - currentLevel * 0.3, alive: true,
+          x: c * T, y: r * T + 8, w: 56, h: 56,
+          vx: -1.5 - currentLevel * 0.3, alive: true,
           type: enemies.length % 2 === 0 ? 'exam' : 'bug',
           animTimer: 0,
           startX: c * T,
-          patrol: 80 + currentLevel * 10,
+          patrol: 160 + currentLevel * 20,
         });
         level[r][c] = 0;
       } else if (tile === 5) {
@@ -238,10 +238,10 @@ function spawnBoss() {
   const info = levelInfo[currentLevel];
   if (!info.boss) return;
   boss = {
-    x: goalX - 60,
-    y: 12 * T - 44,
-    w: 40, h: 44,
-    vx: 1.5 + currentLevel * 0.5,
+    x: goalX - 120,
+    y: 12 * T - 88,
+    w: 80, h: 88,
+    vx: 2 + currentLevel * 0.5,
     hp: info.bossHP,
     maxHP: info.bossHP,
     name: info.boss,
@@ -249,10 +249,10 @@ function spawnBoss() {
     alive: true,
     animTimer: 0,
     attackTimer: 0,
-    attackCooldown: 120 - currentLevel * 20,
+    attackCooldown: 150 - currentLevel * 20,
     hitFlash: 0,
-    startX: goalX - 120,
-    patrol: 100,
+    startX: goalX - 240,
+    patrol: 200,
     phase: 1,
   };
 }
@@ -260,10 +260,10 @@ function spawnBoss() {
 // ============================================================
 // PHYSICS & COLLISION
 // ============================================================
-const GRAVITY = 0.5;
-const MAX_FALL = 8;
-const MOVE_SPEED = 3;
-const JUMP_FORCE = -9.5;
+const GRAVITY = 0.7;
+const MAX_FALL = 14;
+const MOVE_SPEED = 5.5;
+const JUMP_FORCE = -14;
 const FRICTION = 0.85;
 
 function getTile(px, py) {
@@ -442,9 +442,9 @@ function updateEnemies() {
 
     if (player.dead || player.invincible > 0) continue;
     if (rectsOverlap(player, e)) {
-      if (player.vy > 0 && player.y + player.h - 8 < e.y + e.h / 2) {
+      if (player.vy > 0 && player.y + player.h - 16 < e.y + e.h / 2) {
         e.alive = false;
-        player.vy = -6;
+        player.vy = -10;
         score += 200;
         spawnParticles(e.x + e.w / 2, e.y + e.h / 2, '#ff4444', 8);
       } else {
@@ -456,12 +456,12 @@ function updateEnemies() {
 
 function playerHit() {
   player.invincible = 90;
-  player.vy = -5;
-  player.vx = player.facing * -3;
+  player.vy = -8;
+  player.vx = player.facing * -5;
   lives--;
   if (lives <= 0) {
     player.dead = true;
-    player.vy = -8;
+    player.vy = -12;
   }
   spawnParticles(player.x + player.w / 2, player.y + player.h / 2, '#ffffff', 5);
 }
@@ -497,11 +497,11 @@ function updateBoss() {
 
   // Collision with player
   if (!player.dead && player.invincible <= 0 && rectsOverlap(player, boss)) {
-    if (player.vy > 0 && player.y + player.h - 8 < boss.y + boss.h / 2) {
+    if (player.vy > 0 && player.y + player.h - 16 < boss.y + boss.h / 2) {
       // Stomp boss
       boss.hp--;
       boss.hitFlash = 15;
-      player.vy = -8;
+      player.vy = -12;
       score += 500;
       spawnParticles(boss.x + boss.w / 2, boss.y + 10, '#FFD700', 10);
       if (boss.hp <= 0) {
@@ -522,14 +522,14 @@ function fireBossProjectile() {
   const dx = player.x - boss.x;
   const dy = player.y - boss.y;
   const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-  const speed = 2.5 + currentLevel * 0.5;
+  const speed = 3 + currentLevel * 0.5;
 
   bossProjectiles.push({
     x: boss.x + boss.w / 2,
     y: boss.y + boss.h / 2,
     vx: (dx / dist) * speed,
     vy: (dy / dist) * speed,
-    w: 12, h: 12,
+    w: 24, h: 24,
     life: 200,
     type: currentLevel, // different projectile per boss
   });
@@ -541,7 +541,7 @@ function fireBossProjectile() {
       y: boss.y + boss.h / 2,
       vx: (dx / dist) * speed + 1,
       vy: (dy / dist) * speed - 1,
-      w: 12, h: 12,
+      w: 24, h: 24,
       life: 200,
       type: currentLevel,
     });
@@ -583,11 +583,11 @@ function spawnParticles(x, y, color, count) {
   for (let i = 0; i < count; i++) {
     particles.push({
       x, y,
-      vx: (Math.random() - 0.5) * 4,
-      vy: (Math.random() - 0.5) * 4 - 2,
+      vx: (Math.random() - 0.5) * 6,
+      vy: (Math.random() - 0.5) * 6 - 3,
       life: 30 + Math.random() * 20,
       color,
-      size: 2 + Math.random() * 3,
+      size: 4 + Math.random() * 6,
     });
   }
 }
@@ -620,8 +620,8 @@ function drawScotty(x, y, facing, animFrame, invincible) {
   if (invincible > 0 && Math.floor(invincible / 4) % 2 === 0) return;
 
   ctx.save();
-  ctx.translate(x + 12, y + 14);
-  ctx.scale(facing, 1);
+  ctx.translate(x + 24, y + 28);
+  ctx.scale(facing * 2, 2);
   ctx.translate(-12, -14);
 
   const run = animFrame === 1;
@@ -679,7 +679,7 @@ function drawScotty(x, y, facing, animFrame, invincible) {
 }
 
 function drawScottyHead(x, y, size) {
-  const s = size / 16;
+  const s = size / 8;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
@@ -714,8 +714,8 @@ function drawBoss() {
   ctx.save();
   // Face player
   const facingPlayer = player.x > boss.x ? 1 : -1;
-  ctx.translate(x + 20, y + 22);
-  ctx.scale(facingPlayer, 1);
+  ctx.translate(x + 40, y + 44);
+  ctx.scale(facingPlayer * 2, 2);
   ctx.translate(-20, -22);
 
   if (currentLevel === 1) {
@@ -849,10 +849,10 @@ function drawBoss() {
   ctx.globalAlpha = 1;
 
   // Health bar
-  const barW = 60;
-  const barH = 6;
+  const barW = 120;
+  const barH = 10;
   const barX = boss.x - camera.x + boss.w / 2 - barW / 2;
-  const barY = boss.y - 16;
+  const barY = boss.y - 30;
   ctx.fillStyle = '#333';
   ctx.fillRect(barX, barY, barW, barH);
   ctx.fillStyle = boss.hp > boss.maxHP / 3 ? '#C41230' : '#ff0000';
@@ -863,7 +863,7 @@ function drawBoss() {
 
   // Boss name above health bar
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 10px monospace';
+  ctx.font = 'bold 18px monospace';
   ctx.textAlign = 'center';
   ctx.fillText(boss.name, boss.x - camera.x + boss.w / 2, barY - 4);
   ctx.textAlign = 'left';
@@ -875,8 +875,9 @@ function drawBossProjectile(p) {
   const spin = frameCount * 0.15;
 
   ctx.save();
-  ctx.translate(x + 6, y + 6);
+  ctx.translate(x + 12, y + 12);
   ctx.rotate(spin);
+  ctx.scale(2, 2);
   ctx.translate(-6, -6);
 
   if (p.type === 1) {
@@ -915,58 +916,70 @@ function drawEnemy(e) {
   if (!e.alive) return;
   const x = e.x - camera.x;
   const y = e.y;
-  const wobble = Math.sin(e.animTimer * 0.1) * 2;
+  const wobble = Math.sin(e.animTimer * 0.1) * 3;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(2, 2);
 
   if (e.type === 'exam') {
     ctx.fillStyle = '#f5f5dc';
-    ctx.fillRect(x + 2, y + 2 + wobble, 24, 26);
+    ctx.fillRect(2, 2 + wobble, 24, 26);
     ctx.fillStyle = '#333';
-    ctx.fillRect(x + 5, y + 6 + wobble, 18, 2);
-    ctx.fillRect(x + 5, y + 11 + wobble, 14, 2);
-    ctx.fillRect(x + 5, y + 16 + wobble, 16, 2);
+    ctx.fillRect(5, 6 + wobble, 18, 2);
+    ctx.fillRect(5, 11 + wobble, 14, 2);
+    ctx.fillRect(5, 16 + wobble, 16, 2);
     ctx.fillStyle = '#C41230';
-    ctx.fillRect(x + 7, y + 21 + wobble, 4, 3);
-    ctx.fillRect(x + 17, y + 21 + wobble, 4, 3);
+    ctx.fillRect(7, 21 + wobble, 4, 3);
+    ctx.fillRect(17, 21 + wobble, 4, 3);
     ctx.fillStyle = '#C41230';
     ctx.font = 'bold 10px monospace';
-    ctx.fillText('F', x + 12, y + 8 + wobble);
+    ctx.fillText('F', 12, 8 + wobble);
   } else {
     ctx.fillStyle = '#2e7d32';
-    ctx.fillRect(x + 4, y + 6 + wobble, 20, 18);
+    ctx.fillRect(4, 6 + wobble, 20, 18);
     ctx.fillStyle = '#1b5e20';
-    ctx.fillRect(x + 6, y + 8 + wobble, 16, 14);
+    ctx.fillRect(6, 8 + wobble, 16, 14);
     ctx.fillStyle = '#2e7d32';
     const legOff = Math.sin(e.animTimer * 0.15) * 2;
-    ctx.fillRect(x + 1, y + 10 + legOff, 4, 2);
-    ctx.fillRect(x + 23, y + 10 - legOff, 4, 2);
-    ctx.fillRect(x + 1, y + 18 - legOff, 4, 2);
-    ctx.fillRect(x + 23, y + 18 + legOff, 4, 2);
+    ctx.fillRect(1, 10 + legOff, 4, 2);
+    ctx.fillRect(23, 10 - legOff, 4, 2);
+    ctx.fillRect(1, 18 - legOff, 4, 2);
+    ctx.fillRect(23, 18 + legOff, 4, 2);
     ctx.fillStyle = '#ff0';
-    ctx.fillRect(x + 8, y + 4 + wobble, 4, 4);
-    ctx.fillRect(x + 16, y + 4 + wobble, 4, 4);
+    ctx.fillRect(8, 4 + wobble, 4, 4);
+    ctx.fillRect(16, 4 + wobble, 4, 4);
     ctx.fillStyle = '#000';
-    ctx.fillRect(x + 9, y + 5 + wobble, 2, 2);
-    ctx.fillRect(x + 17, y + 5 + wobble, 2, 2);
+    ctx.fillRect(9, 5 + wobble, 2, 2);
+    ctx.fillRect(17, 5 + wobble, 2, 2);
     ctx.fillStyle = '#2e7d32';
-    ctx.fillRect(x + 9, y + 1, 2, 5);
-    ctx.fillRect(x + 17, y + 1, 2, 5);
+    ctx.fillRect(9, 1, 2, 5);
+    ctx.fillRect(17, 1, 2, 5);
   }
+
+  ctx.restore();
 }
 
 function drawCollectible(c) {
   if (c.collected) return;
   const x = c.x - camera.x;
-  const y = c.y + Math.sin(c.bobOffset) * 3;
+  const y = c.y + Math.sin(c.bobOffset) * 5;
   const sparkle = Math.sin(frameCount * 0.1) * 0.3 + 0.7;
 
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(2, 2);
+
   ctx.fillStyle = `rgba(255, 215, 0, ${sparkle})`;
-  ctx.fillRect(x + 4, y + 2, 16, 20);
+  ctx.fillRect(4, 2, 16, 20);
   ctx.fillStyle = '#DAA520';
-  ctx.fillRect(x + 2, y + 1, 20, 3);
-  ctx.fillRect(x + 2, y + 20, 20, 3);
+  ctx.fillRect(2, 1, 20, 3);
+  ctx.fillRect(2, 20, 20, 3);
   ctx.fillStyle = '#C41230';
-  ctx.fillRect(x + 10, y + 7, 4, 8);
-  ctx.fillRect(x + 8, y + 9, 8, 4);
+  ctx.fillRect(10, 7, 4, 8);
+  ctx.fillRect(8, 9, 8, 4);
+
+  ctx.restore();
 }
 
 // ============================================================
@@ -1438,43 +1451,48 @@ function drawTiles() {
 function drawGoal() {
   if (gameState === 'bossFight' || gameState === 'bossDefeated') return;
   const x = goalX - camera.x;
+  ctx.save();
+  ctx.translate(x, H - 14 * T);
+  ctx.scale(2, 2);
+  const oY = 40;
   ctx.fillStyle = '#ccc';
-  ctx.fillRect(x + 14, H - 14 * T + 80, 4, 14 * T - 80);
+  ctx.fillRect(14, oY, 4, 14 * 32 / 2 - oY);
   ctx.fillStyle = '#C41230';
-  ctx.fillRect(x + 18, H - 14 * T + 82, 30, 20);
+  ctx.fillRect(18, oY + 2, 30, 20);
   ctx.fillStyle = '#FFD700';
   ctx.font = 'bold 10px monospace';
-  ctx.fillText('CMU', x + 21, H - 14 * T + 97);
+  ctx.fillText('CMU', 21, oY + 17);
   ctx.fillStyle = '#222';
-  ctx.fillRect(x + 6, H - 14 * T + 72, 20, 4);
-  ctx.fillRect(x + 10, H - 14 * T + 68, 12, 6);
+  ctx.fillRect(6, oY - 8, 20, 4);
+  ctx.fillRect(10, oY - 12, 12, 6);
   ctx.fillStyle = '#FFD700';
-  ctx.fillRect(x + 6, H - 14 * T + 72, 2, 10);
-  ctx.fillRect(x + 3, H - 14 * T + 80, 6, 3);
+  ctx.fillRect(6, oY - 8, 2, 10);
+  ctx.fillRect(3, oY, 6, 3);
+  ctx.restore();
 }
 
 function drawHUD() {
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(0, 0, W, 36);
+  ctx.fillRect(0, 0, W, 60);
 
   ctx.fillStyle = '#FFD700';
-  ctx.font = 'bold 14px monospace';
-  ctx.fillText('SCORE: ' + String(score).padStart(6, '0'), 15, 24);
+  ctx.font = 'bold 24px monospace';
+  ctx.fillText('SCORE: ' + String(score).padStart(6, '0'), 20, 40);
 
   // Level name
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 14px monospace';
+  ctx.font = 'bold 24px monospace';
   ctx.textAlign = 'center';
   const info = levelInfo[currentLevel];
-  ctx.fillText('Level ' + (currentLevel + 1) + ': ' + info.name, W / 2, 14);
+  ctx.fillText('Level ' + (currentLevel + 1) + ': ' + info.name, W / 2, 25);
   ctx.fillStyle = '#888';
-  ctx.font = '10px monospace';
-  ctx.fillText(info.subtitle, W / 2, 28);
+  ctx.font = '16px monospace';
+  ctx.fillText(info.subtitle, W / 2, 48);
   ctx.textAlign = 'left';
 
   // Lives
   for (let i = 0; i < lives; i++) {
-    drawScottyHead(W - 35 - i * 28, 8, 20);
+    drawScottyHead(W - 55 - i * 45, 12, 36);
   }
 }
 
@@ -1496,29 +1514,29 @@ function drawTitle() {
   drawBG_Doha();
 
   ctx.fillStyle = '#C41230';
-  ctx.font = 'bold 44px monospace';
+  ctx.font = 'bold 80px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('SCOTTY RUN', W / 2, H / 2 - 70);
+  ctx.fillText('SCOTTY RUN', W / 2, H / 2 - 130);
 
   ctx.fillStyle = '#FFD700';
-  ctx.font = 'bold 16px monospace';
-  ctx.fillText('A CMU Global Adventure', W / 2, H / 2 - 35);
+  ctx.font = 'bold 28px monospace';
+  ctx.fillText('A CMU Global Adventure', W / 2, H / 2 - 70);
 
   ctx.fillStyle = '#fff';
-  ctx.font = '13px monospace';
-  ctx.fillText('Doha \u2022 Kigali \u2022 Silicon Valley \u2022 Pittsburgh', W / 2, H / 2 - 10);
+  ctx.font = '22px monospace';
+  ctx.fillText('Doha \u2022 Kigali \u2022 Silicon Valley \u2022 Pittsburgh', W / 2, H / 2 - 30);
 
-  drawScotty(W / 2 - 12, H / 2 + 10, 1, Math.floor(frameCount / 15) % 2, 0);
+  drawScotty(W / 2 - 24, H / 2 + 10, 1, Math.floor(frameCount / 15) % 2, 0);
 
   ctx.fillStyle = '#fff';
-  ctx.font = '14px monospace';
+  ctx.font = '24px monospace';
   const blink = Math.sin(frameCount * 0.06) > 0;
-  if (blink) ctx.fillText('Press SPACE to Start', W / 2, H / 2 + 70);
+  if (blink) ctx.fillText('Press SPACE to Start', W / 2, H / 2 + 120);
 
   ctx.fillStyle = '#888';
-  ctx.font = '12px monospace';
-  ctx.fillText('\u2190 \u2192 Move   SPACE Jump (x2 for Double Jump!)', W / 2, H / 2 + 100);
-  ctx.fillText('Stomp enemies & bosses! Collect diplomas!', W / 2, H / 2 + 120);
+  ctx.font = '20px monospace';
+  ctx.fillText('\u2190 \u2192 Move   SPACE Jump (x2 for Double Jump!)', W / 2, H / 2 + 170);
+  ctx.fillText('Stomp enemies & bosses! Collect diplomas!', W / 2, H / 2 + 200);
 
   ctx.textAlign = 'left';
 }
@@ -1533,24 +1551,24 @@ function drawLevelIntro() {
   ctx.textAlign = 'center';
 
   ctx.fillStyle = '#FFD700';
-  ctx.font = 'bold 36px monospace';
-  ctx.fillText('Level ' + (currentLevel + 1), W / 2, H / 2 - 50);
+  ctx.font = 'bold 64px monospace';
+  ctx.fillText('Level ' + (currentLevel + 1), W / 2, H / 2 - 80);
 
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 24px monospace';
+  ctx.font = 'bold 44px monospace';
   ctx.fillText(info.name, W / 2, H / 2 - 10);
 
   ctx.fillStyle = '#C41230';
-  ctx.font = '16px monospace';
-  ctx.fillText(info.subtitle, W / 2, H / 2 + 20);
+  ctx.font = '28px monospace';
+  ctx.fillText(info.subtitle, W / 2, H / 2 + 35);
 
   if (info.boss) {
     ctx.fillStyle = '#ff6666';
-    ctx.font = 'bold 14px monospace';
-    ctx.fillText('BOSS: ' + info.boss, W / 2, H / 2 + 55);
+    ctx.font = 'bold 26px monospace';
+    ctx.fillText('BOSS: ' + info.boss, W / 2, H / 2 + 90);
     ctx.fillStyle = '#aaa';
-    ctx.font = '12px monospace';
-    ctx.fillText(info.bossTitle, W / 2, H / 2 + 75);
+    ctx.font = '22px monospace';
+    ctx.fillText(info.bossTitle, W / 2, H / 2 + 125);
   }
 
   ctx.textAlign = 'left';
@@ -1567,15 +1585,15 @@ function drawBossDefeated() {
 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#FFD700';
-  ctx.font = 'bold 32px monospace';
-  ctx.fillText(boss ? boss.name + ' DEFEATED!' : 'BOSS DEFEATED!', W / 2, H / 2 - 20);
+  ctx.font = 'bold 56px monospace';
+  ctx.fillText(boss ? boss.name + ' DEFEATED!' : 'BOSS DEFEATED!', W / 2, H / 2 - 30);
 
   ctx.fillStyle = '#fff';
-  ctx.font = '16px monospace';
+  ctx.font = '28px monospace';
   if (currentLevel < 3) {
-    ctx.fillText('Advancing to ' + levelInfo[currentLevel + 1].name + '...', W / 2, H / 2 + 20);
+    ctx.fillText('Advancing to ' + levelInfo[currentLevel + 1].name + '...', W / 2, H / 2 + 30);
   } else {
-    ctx.fillText('You conquered all CMU campuses!', W / 2, H / 2 + 20);
+    ctx.fillText('You conquered all CMU campuses!', W / 2, H / 2 + 30);
   }
   ctx.textAlign = 'left';
 }
@@ -1586,21 +1604,21 @@ function drawGameOver() {
 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#C41230';
-  ctx.font = 'bold 40px monospace';
-  ctx.fillText('GAME OVER', W / 2, H / 2 - 30);
+  ctx.font = 'bold 72px monospace';
+  ctx.fillText('GAME OVER', W / 2, H / 2 - 50);
 
   ctx.fillStyle = '#FFD700';
-  ctx.font = 'bold 18px monospace';
-  ctx.fillText('Score: ' + score, W / 2, H / 2 + 15);
+  ctx.font = 'bold 32px monospace';
+  ctx.fillText('Score: ' + score, W / 2, H / 2 + 20);
 
   ctx.fillStyle = '#888';
-  ctx.font = '14px monospace';
-  ctx.fillText('Reached: ' + levelInfo[currentLevel].name, W / 2, H / 2 + 40);
+  ctx.font = '24px monospace';
+  ctx.fillText('Reached: ' + levelInfo[currentLevel].name, W / 2, H / 2 + 65);
 
   ctx.fillStyle = '#fff';
-  ctx.font = '14px monospace';
+  ctx.font = '24px monospace';
   const blink = Math.sin(frameCount * 0.06) > 0;
-  if (blink) ctx.fillText('Press SPACE to Retry', W / 2, H / 2 + 70);
+  if (blink) ctx.fillText('Press SPACE to Retry', W / 2, H / 2 + 110);
   ctx.textAlign = 'left';
 }
 
@@ -1612,32 +1630,32 @@ function drawVictory() {
 
   // Graduation cap
   ctx.fillStyle = '#222';
-  ctx.fillRect(W / 2 - 30, H / 2 - 120, 60, 8);
-  ctx.fillRect(W / 2 - 20, H / 2 - 130, 40, 14);
+  ctx.fillRect(W / 2 - 60, H / 2 - 220, 120, 16);
+  ctx.fillRect(W / 2 - 40, H / 2 - 240, 80, 28);
   ctx.fillStyle = '#FFD700';
-  ctx.fillRect(W / 2 - 30, H / 2 - 120, 2, 15);
-  ctx.fillRect(W / 2 - 34, H / 2 - 107, 10, 4);
+  ctx.fillRect(W / 2 - 60, H / 2 - 220, 4, 30);
+  ctx.fillRect(W / 2 - 68, H / 2 - 194, 20, 8);
 
   ctx.fillStyle = '#FFD700';
-  ctx.font = 'bold 36px monospace';
-  ctx.fillText('GRADUATED!', W / 2, H / 2 - 40);
+  ctx.font = 'bold 64px monospace';
+  ctx.fillText('GRADUATED!', W / 2, H / 2 - 70);
 
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 20px monospace';
+  ctx.font = 'bold 36px monospace';
   ctx.fillText('Final Score: ' + score, W / 2, H / 2);
 
   ctx.fillStyle = '#C41230';
-  ctx.font = '14px monospace';
-  ctx.fillText('Scotty conquered all CMU campuses!', W / 2, H / 2 + 30);
+  ctx.font = '24px monospace';
+  ctx.fillText('Scotty conquered all CMU campuses!', W / 2, H / 2 + 50);
 
   ctx.fillStyle = '#888';
-  ctx.font = '12px monospace';
-  ctx.fillText('Doha \u2713  Kigali \u2713  Silicon Valley \u2713  Pittsburgh \u2713', W / 2, H / 2 + 55);
+  ctx.font = '20px monospace';
+  ctx.fillText('Doha \u2713  Kigali \u2713  Silicon Valley \u2713  Pittsburgh \u2713', W / 2, H / 2 + 90);
 
   ctx.fillStyle = '#fff';
-  ctx.font = '14px monospace';
+  ctx.font = '24px monospace';
   const blink = Math.sin(frameCount * 0.06) > 0;
-  if (blink) ctx.fillText('Press SPACE to Play Again', W / 2, H / 2 + 85);
+  if (blink) ctx.fillText('Press SPACE to Play Again', W / 2, H / 2 + 140);
   ctx.textAlign = 'left';
 
   // Confetti
@@ -1652,7 +1670,7 @@ function drawVictory() {
 // ============================================================
 function resetGame() {
   score = 0;
-  lives = 3;
+  lives = 5;
   camera.x = 0;
   currentLevel = 0;
   startLevel(0);
