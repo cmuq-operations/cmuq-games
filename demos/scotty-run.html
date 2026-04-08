@@ -141,18 +141,20 @@ function loadLevel(idx) {
 // ============================================================
 // GAME STATE
 // ============================================================
-let gameState = 'title'; // title, levelIntro, playing, bossFight, bossDefeated, gameover, victory
+let gameState = 'title'; // title, levelIntro, playing, bossFight, bossDefeated, passNoPass, gameover, victory
 let score = 0;
 let lives = 5;
 let camera = { x: 0 };
 let frameCount = 0;
 let levelIntroTimer = 0;
+let usedPassNoPass = [false, false, false, false]; // track P/NP per level
+let bossDeathCount = 0; // deaths during current boss fight
 
 // Input
 const keys = {};
 window.addEventListener('keydown', e => {
   keys[e.code] = true;
-  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyP'].includes(e.code)) {
     e.preventDefault();
   }
 });
@@ -219,11 +221,14 @@ function initEntities() {
       } else if (tile === 4) {
         enemies.push({
           x: c * T, y: r * T + 8, w: 56, h: 56,
-          vx: -1.5 - currentLevel * 0.3, alive: true,
-          type: enemies.length % 2 === 0 ? 'exam' : 'bug',
-          animTimer: 0,
+          vx: (Math.random() > 0.5 ? -1 : 1) * (2 + currentLevel * 0.5 + Math.random()),
+          alive: true,
+          type: enemies.length % 2 === 0 ? 'deadline' : 'profRedPen',
+          animTimer: Math.random() * 100,
           startX: c * T,
           patrol: 160 + currentLevel * 20,
+          jumpTimer: Math.floor(Math.random() * 120),
+          vy: 0,
         });
         level[r][c] = 0;
       } else if (tile === 5) {
@@ -290,12 +295,24 @@ function updatePlayer() {
     if (player.deadTimer > 60) {
       lives--;
       if (lives <= 0) {
-        gameState = 'gameover';
-      } else {
-        resetPlayer();
         if (gameState === 'bossFight') {
-          // Respawn during boss fight — boss keeps HP
+          // Offer Pass/No-Pass option instead of game over
+          bossDeathCount++;
+          lives = 1; // give them a life back for the prompt
+          gameState = 'passNoPass';
+          resetPlayer();
+        } else {
+          gameState = 'gameover';
         }
+      } else {
+        if (gameState === 'bossFight') {
+          bossDeathCount++;
+          // After 2 deaths on a boss, offer P/NP
+          if (bossDeathCount >= 2) {
+            gameState = 'passNoPass';
+          }
+        }
+        resetPlayer();
       }
     }
     return;
@@ -391,6 +408,7 @@ function updatePlayer() {
     if (levelInfo[currentLevel].boss) {
       // Start boss fight
       gameState = 'bossFight';
+      bossDeathCount = 0;
       spawnBoss();
     } else {
       // No boss — advance level
@@ -424,6 +442,7 @@ function updateEnemies() {
   for (const e of enemies) {
     if (!e.alive) continue;
 
+    // Horizontal movement
     e.x += e.vx;
     if (e.x < e.startX - e.patrol || e.x > e.startX + e.patrol) {
       e.vx *= -1;
@@ -434,9 +453,29 @@ function updateEnemies() {
       e.vx *= -1;
     }
     const footX = e.vx > 0 ? e.x + e.w + 2 : e.x - 2;
-    if (!isSolid(footX, e.y + e.h + 2)) {
+    if (!isSolid(footX, e.y + e.h + 2) && e.vy === 0) {
       e.vx *= -1;
     }
+
+    // Vertical — jumping enemies (deadline clocks hop around)
+    if (e.type === 'deadline') {
+      e.jumpTimer--;
+      if (e.jumpTimer <= 0 && e.vy === 0) {
+        e.vy = -8;
+        e.jumpTimer = 80 + Math.floor(Math.random() * 60);
+      }
+    }
+    // Gravity for enemies
+    e.vy = (e.vy || 0) + 0.4;
+    if (e.vy > 8) e.vy = 8;
+    e.y += e.vy;
+    // Land on ground
+    if (isSolid(e.x + e.w / 2, e.y + e.h + 1)) {
+      e.y = Math.floor((e.y + e.h) / T) * T - e.h;
+      e.vy = 0;
+    }
+    // Fall off check
+    if (e.y > LEVEL_H * T + 100) { e.alive = false; continue; }
 
     e.animTimer++;
 
@@ -916,45 +955,113 @@ function drawEnemy(e) {
   if (!e.alive) return;
   const x = e.x - camera.x;
   const y = e.y;
-  const wobble = Math.sin(e.animTimer * 0.1) * 3;
 
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(2, 2);
 
-  if (e.type === 'exam') {
-    ctx.fillStyle = '#f5f5dc';
-    ctx.fillRect(2, 2 + wobble, 24, 26);
-    ctx.fillStyle = '#333';
-    ctx.fillRect(5, 6 + wobble, 18, 2);
-    ctx.fillRect(5, 11 + wobble, 14, 2);
-    ctx.fillRect(5, 16 + wobble, 16, 2);
+  if (e.type === 'deadline') {
+    // Deadline alarm clock — hops around
+    const shake = Math.sin(e.animTimer * 0.3) * 1.5;
+    // Clock body (red)
     ctx.fillStyle = '#C41230';
-    ctx.fillRect(7, 21 + wobble, 4, 3);
-    ctx.fillRect(17, 21 + wobble, 4, 3);
+    ctx.beginPath();
+    ctx.arc(14, 16 + shake, 12, 0, Math.PI * 2);
+    ctx.fill();
+    // Clock face
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(14, 16 + shake, 9, 0, Math.PI * 2);
+    ctx.fill();
+    // Clock hands
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+    const handAngle = e.animTimer * 0.05;
+    ctx.beginPath();
+    ctx.moveTo(14, 16 + shake);
+    ctx.lineTo(14 + Math.cos(handAngle) * 6, 16 + shake + Math.sin(handAngle) * 6);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(14, 16 + shake);
+    ctx.lineTo(14 + Math.cos(handAngle * 3) * 4, 16 + shake + Math.sin(handAngle * 3) * 4);
+    ctx.stroke();
+    // Angry eyes on clock face
     ctx.fillStyle = '#C41230';
-    ctx.font = 'bold 10px monospace';
-    ctx.fillText('F', 12, 8 + wobble);
+    ctx.fillRect(10, 13 + shake, 3, 3);
+    ctx.fillRect(16, 13 + shake, 3, 3);
+    // Alarm bells on top
+    ctx.fillStyle = '#DAA520';
+    ctx.beginPath();
+    ctx.arc(7, 5 + shake, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(21, 5 + shake, 4, 0, Math.PI * 2);
+    ctx.fill();
+    // Hammer between bells
+    ctx.fillStyle = '#888';
+    ctx.fillRect(13, 2 + shake, 2, 4);
+    // Legs
+    ctx.fillStyle = '#C41230';
+    const legAnim = Math.sin(e.animTimer * 0.2) * 2;
+    ctx.fillRect(8, 27 + legAnim, 3, 4);
+    ctx.fillRect(17, 27 - legAnim, 3, 4);
+    // "DUE!" text
+    ctx.fillStyle = '#C41230';
+    ctx.font = 'bold 5px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('DUE!', 14, 22 + shake);
+    ctx.textAlign = 'left';
   } else {
-    ctx.fillStyle = '#2e7d32';
-    ctx.fillRect(4, 6 + wobble, 20, 18);
-    ctx.fillStyle = '#1b5e20';
-    ctx.fillRect(6, 8 + wobble, 16, 14);
-    ctx.fillStyle = '#2e7d32';
-    const legOff = Math.sin(e.animTimer * 0.15) * 2;
-    ctx.fillRect(1, 10 + legOff, 4, 2);
-    ctx.fillRect(23, 10 - legOff, 4, 2);
-    ctx.fillRect(1, 18 - legOff, 4, 2);
-    ctx.fillRect(23, 18 + legOff, 4, 2);
-    ctx.fillStyle = '#ff0';
-    ctx.fillRect(8, 4 + wobble, 4, 4);
-    ctx.fillRect(16, 4 + wobble, 4, 4);
+    // Professor with red pen — walks back and forth marking F's
+    const walk = Math.sin(e.animTimer * 0.15) * 1;
+    const facing = e.vx > 0 ? 1 : -1;
+    ctx.save();
+    ctx.translate(14, 14);
+    ctx.scale(facing, 1);
+    ctx.translate(-14, -14);
+    // Body (tweed jacket)
+    ctx.fillStyle = '#5a4a3a';
+    ctx.fillRect(6, 12 + walk, 16, 14);
+    // Head
+    ctx.fillStyle = '#d4a574';
+    ctx.fillRect(8, 1 + walk, 12, 12);
+    // Angry eyebrows
+    ctx.fillStyle = '#333';
+    ctx.fillRect(9, 3 + walk, 4, 2);
+    ctx.fillRect(15, 3 + walk, 4, 2);
+    // Eyes
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(10, 5 + walk, 3, 3);
+    ctx.fillRect(16, 5 + walk, 3, 3);
     ctx.fillStyle = '#000';
-    ctx.fillRect(9, 5 + wobble, 2, 2);
-    ctx.fillRect(17, 5 + wobble, 2, 2);
-    ctx.fillStyle = '#2e7d32';
-    ctx.fillRect(9, 1, 2, 5);
-    ctx.fillRect(17, 1, 2, 5);
+    ctx.fillRect(11, 6 + walk, 2, 2);
+    ctx.fillRect(17, 6 + walk, 2, 2);
+    // Frown
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(11, 10 + walk, 6, 1);
+    // Glasses
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(9, 4 + walk, 5, 5);
+    ctx.strokeRect(15, 4 + walk, 5, 5);
+    ctx.fillStyle = '#555';
+    ctx.fillRect(14, 6 + walk, 1, 1);
+    // Hair (messy professor)
+    ctx.fillStyle = '#777';
+    ctx.fillRect(8, 0 + walk, 12, 3);
+    ctx.fillRect(7, 1 + walk, 2, 4);
+    ctx.fillRect(19, 1 + walk, 2, 4);
+    // Red pen in hand
+    ctx.fillStyle = '#ff0000';
+    ctx.fillRect(22, 14 + walk, 2, 10);
+    ctx.fillStyle = '#cc0000';
+    ctx.fillRect(22, 23 + walk, 2, 3);
+    // Legs (walking)
+    const legOff = Math.sin(e.animTimer * 0.2) * 3;
+    ctx.fillStyle = '#3a3a3a';
+    ctx.fillRect(8, 25 + legOff, 5, 5);
+    ctx.fillRect(15, 25 - legOff, 5, 5);
+    ctx.restore();
   }
 
   ctx.restore();
@@ -1584,18 +1691,103 @@ function drawBossDefeated() {
   ctx.fillRect(0, 0, W, H);
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#FFD700';
-  ctx.font = 'bold 56px monospace';
-  ctx.fillText(boss ? boss.name + ' DEFEATED!' : 'BOSS DEFEATED!', W / 2, H / 2 - 30);
+  if (usedPassNoPass[currentLevel]) {
+    ctx.fillStyle = '#4a9';
+    ctx.font = 'bold 56px monospace';
+    ctx.fillText(boss ? boss.name + ' — PASSED!' : 'PASSED!', W / 2, H / 2 - 30);
+    ctx.fillStyle = '#aaa';
+    ctx.font = '24px monospace';
+    ctx.fillText('(Pass/No-Pass elected)', W / 2, H / 2 + 10);
+  } else {
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 56px monospace';
+    ctx.fillText(boss ? boss.name + ' DEFEATED!' : 'BOSS DEFEATED!', W / 2, H / 2 - 30);
+  }
 
   ctx.fillStyle = '#fff';
   ctx.font = '28px monospace';
   if (currentLevel < 3) {
-    ctx.fillText('Advancing to ' + levelInfo[currentLevel + 1].name + '...', W / 2, H / 2 + 30);
+    ctx.fillText('Advancing to ' + levelInfo[currentLevel + 1].name + '...', W / 2, H / 2 + 50);
   } else {
-    ctx.fillText('You conquered all CMU campuses!', W / 2, H / 2 + 30);
+    ctx.fillText('You conquered all CMU campuses!', W / 2, H / 2 + 50);
   }
   ctx.textAlign = 'left';
+}
+
+function drawPassNoPass() {
+  drawBackground();
+  drawTiles();
+  drawHUD();
+
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = 'center';
+
+  const bossName = boss ? boss.name : 'the boss';
+
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 48px monospace';
+  ctx.fillText('ACADEMIC OPTIONS', W / 2, H / 2 - 140);
+
+  ctx.fillStyle = '#ff6666';
+  ctx.font = '24px monospace';
+  ctx.fillText(bossName + ' is tough! You\'ve died ' + bossDeathCount + ' time(s).', W / 2, H / 2 - 80);
+
+  // Option box styling
+  ctx.fillStyle = 'rgba(50,50,80,0.8)';
+  ctx.fillRect(W / 2 - 350, H / 2 - 50, 320, 120);
+  ctx.fillRect(W / 2 + 30, H / 2 - 50, 320, 120);
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(W / 2 - 350, H / 2 - 50, 320, 120);
+  ctx.strokeStyle = '#4a9';
+  ctx.strokeRect(W / 2 + 30, H / 2 - 50, 320, 120);
+
+  // Option 1: Keep fighting
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 28px monospace';
+  ctx.fillText('[SPACE] Fight On!', W / 2 - 190, H / 2 - 10);
+  ctx.fillStyle = '#ccc';
+  ctx.font = '18px monospace';
+  ctx.fillText('Keep your letter grade', W / 2 - 190, H / 2 + 25);
+  ctx.fillText('Lives restored to 3', W / 2 - 190, H / 2 + 50);
+
+  // Option 2: Pass/No-Pass
+  ctx.fillStyle = '#4a9';
+  ctx.font = 'bold 28px monospace';
+  ctx.fillText('[P] Pass/No-Pass', W / 2 + 190, H / 2 - 10);
+  ctx.fillStyle = '#ccc';
+  ctx.font = '18px monospace';
+  ctx.fillText('Skip this boss fight', W / 2 + 190, H / 2 + 25);
+  ctx.fillText('Max grade becomes P', W / 2 + 190, H / 2 + 50);
+
+  // Warning
+  ctx.fillStyle = '#888';
+  ctx.font = '16px monospace';
+  ctx.fillText('Taking P/NP on any level caps your final grade at "Pass"', W / 2, H / 2 + 120);
+
+  ctx.textAlign = 'left';
+}
+
+function calculateGrade() {
+  const tookPNP = usedPassNoPass.some(v => v);
+  if (tookPNP) return { letter: 'P', label: 'Pass', color: '#4a9' };
+
+  // Grade based on score and remaining lives
+  const totalCollectibles = allLevelData.reduce((sum, lvl) => {
+    return sum + lvl.join('').split('').filter(c => c === '3').length;
+  }, 0);
+  const maxScore = totalCollectibles * 100 + 4 * 2000 + 20 * 200 + 3 * 500 * 5; // collectibles + boss defeats + enemy stomps + boss stomps
+  const pct = score / Math.max(maxScore, 1);
+
+  if (pct >= 0.9 && lives >= 4) return { letter: 'A+', label: 'Summa Cum Laude', color: '#FFD700' };
+  if (pct >= 0.8) return { letter: 'A', label: 'Magna Cum Laude', color: '#FFD700' };
+  if (pct >= 0.7) return { letter: 'B+', label: 'Cum Laude', color: '#aaa' };
+  if (pct >= 0.55) return { letter: 'B', label: 'Dean\'s List', color: '#aaa' };
+  if (pct >= 0.4) return { letter: 'C+', label: 'Good Standing', color: '#ccc' };
+  if (pct >= 0.25) return { letter: 'C', label: 'Satisfactory', color: '#ccc' };
+  return { letter: 'D', label: 'Academic Probation', color: '#ff6666' };
 }
 
 function drawGameOver() {
@@ -1638,24 +1830,34 @@ function drawVictory() {
 
   ctx.fillStyle = '#FFD700';
   ctx.font = 'bold 64px monospace';
-  ctx.fillText('GRADUATED!', W / 2, H / 2 - 70);
+  ctx.fillText('GRADUATED!', W / 2, H / 2 - 100);
+
+  const grade = calculateGrade();
+
+  // Grade display
+  ctx.fillStyle = grade.color;
+  ctx.font = 'bold 80px monospace';
+  ctx.fillText(grade.letter, W / 2, H / 2 + 10);
+  ctx.font = 'bold 24px monospace';
+  ctx.fillText(grade.label, W / 2, H / 2 + 45);
 
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 36px monospace';
-  ctx.fillText('Final Score: ' + score, W / 2, H / 2);
+  ctx.font = 'bold 28px monospace';
+  ctx.fillText('Final Score: ' + score, W / 2, H / 2 + 90);
 
-  ctx.fillStyle = '#C41230';
-  ctx.font = '24px monospace';
-  ctx.fillText('Scotty conquered all CMU campuses!', W / 2, H / 2 + 50);
-
+  // Show P/NP usage per level
+  ctx.font = '18px monospace';
+  const levelMarks = levelInfo.map((info, i) => {
+    if (i === 0) return info.name + ' \u2713';
+    return info.name + (usedPassNoPass[i] ? ' (P/NP)' : ' \u2713');
+  }).join('  ');
   ctx.fillStyle = '#888';
-  ctx.font = '20px monospace';
-  ctx.fillText('Doha \u2713  Kigali \u2713  Silicon Valley \u2713  Pittsburgh \u2713', W / 2, H / 2 + 90);
+  ctx.fillText(levelMarks, W / 2, H / 2 + 130);
 
   ctx.fillStyle = '#fff';
   ctx.font = '24px monospace';
   const blink = Math.sin(frameCount * 0.06) > 0;
-  if (blink) ctx.fillText('Press SPACE to Play Again', W / 2, H / 2 + 140);
+  if (blink) ctx.fillText('Press SPACE to Play Again', W / 2, H / 2 + 180);
   ctx.textAlign = 'left';
 
   // Confetti
@@ -1673,6 +1875,8 @@ function resetGame() {
   lives = 5;
   camera.x = 0;
   currentLevel = 0;
+  usedPassNoPass = [false, false, false, false];
+  bossDeathCount = 0;
   startLevel(0);
 }
 
@@ -1704,6 +1908,26 @@ function update() {
     updateCollectibles();
     updateParticles();
     updateCamera();
+  } else if (gameState === 'passNoPass') {
+    // Waiting for player choice
+    if (keys['Space']) {
+      // Fight on — restore lives
+      lives = 3;
+      bossDeathCount = 0;
+      gameState = 'bossFight';
+      resetPlayer();
+      keys['Space'] = false;
+    } else if (keys['KeyP']) {
+      // Take Pass/No-Pass — skip boss
+      usedPassNoPass[currentLevel] = true;
+      if (boss) boss.alive = false;
+      score += 500; // consolation points
+      spawnParticles(W / 2, H / 2, '#4a9', 15);
+      gameState = 'bossDefeated';
+      levelIntroTimer = 150;
+      lives = Math.max(lives, 3);
+      keys['KeyP'] = false;
+    }
   } else if (gameState === 'bossDefeated') {
     updateParticles();
     levelIntroTimer--;
@@ -1739,6 +1963,8 @@ function draw() {
     drawScotty(player.x - camera.x, player.y, player.facing, player.animFrame, player.invincible);
     drawParticles();
     drawHUD();
+  } else if (gameState === 'passNoPass') {
+    drawPassNoPass();
   } else if (gameState === 'bossDefeated') {
     drawBossDefeated();
   } else if (gameState === 'gameover') {
