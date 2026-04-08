@@ -149,16 +149,203 @@ let frameCount = 0;
 let levelIntroTimer = 0;
 let usedPassNoPass = [false, false, false, false]; // track P/NP per level
 let bossDeathCount = 0; // deaths during current boss fight
+let assistMode = false; // invincibility assist mode
+let screenShake = 0; // visual polish: shake frames remaining
+let screenShakeX = 0;
+let screenShakeY = 0;
 
 // Input
 const keys = {};
 window.addEventListener('keydown', e => {
   keys[e.code] = true;
-  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyP'].includes(e.code)) {
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyP', 'KeyN', 'KeyA'].includes(e.code)) {
     e.preventDefault();
   }
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// ============================================================
+// SOUND EFFECTS (Web Audio API)
+// ============================================================
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playSound(type) {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const g = audioCtx.createGain();
+  g.connect(audioCtx.destination);
+
+  if (type === 'jump') {
+    const o = audioCtx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(300, now);
+    o.frequency.linearRampToValueAtTime(500, now + 0.1);
+    g.gain.setValueAtTime(0.15, now);
+    g.gain.linearRampToValueAtTime(0, now + 0.1);
+    o.connect(g); o.start(now); o.stop(now + 0.1);
+  } else if (type === 'doublejump') {
+    const o = audioCtx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(500, now);
+    o.frequency.linearRampToValueAtTime(800, now + 0.08);
+    g.gain.setValueAtTime(0.12, now);
+    g.gain.linearRampToValueAtTime(0, now + 0.08);
+    o.connect(g); o.start(now); o.stop(now + 0.08);
+  } else if (type === 'coin') {
+    const o = audioCtx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(880, now);
+    o.frequency.setValueAtTime(1100, now + 0.07);
+    g.gain.setValueAtTime(0.15, now);
+    g.gain.linearRampToValueAtTime(0, now + 0.15);
+    o.connect(g); o.start(now); o.stop(now + 0.15);
+  } else if (type === 'health') {
+    const o = audioCtx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(400, now);
+    o.frequency.linearRampToValueAtTime(900, now + 0.3);
+    g.gain.setValueAtTime(0.15, now);
+    g.gain.linearRampToValueAtTime(0, now + 0.3);
+    o.connect(g); o.start(now); o.stop(now + 0.3);
+  } else if (type === 'stomp') {
+    const o = audioCtx.createOscillator();
+    o.type = 'square';
+    o.frequency.setValueAtTime(150, now);
+    o.frequency.linearRampToValueAtTime(50, now + 0.1);
+    g.gain.setValueAtTime(0.2, now);
+    g.gain.linearRampToValueAtTime(0, now + 0.1);
+    o.connect(g); o.start(now); o.stop(now + 0.1);
+  } else if (type === 'hit') {
+    const o = audioCtx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(100, now);
+    o.frequency.linearRampToValueAtTime(60, now + 0.2);
+    g.gain.setValueAtTime(0.15, now);
+    g.gain.linearRampToValueAtTime(0, now + 0.2);
+    o.connect(g); o.start(now); o.stop(now + 0.2);
+  } else if (type === 'bossstomp') {
+    const o = audioCtx.createOscillator();
+    o.type = 'square';
+    o.frequency.setValueAtTime(200, now);
+    o.frequency.linearRampToValueAtTime(40, now + 0.2);
+    g.gain.setValueAtTime(0.25, now);
+    g.gain.linearRampToValueAtTime(0, now + 0.2);
+    o.connect(g); o.start(now); o.stop(now + 0.2);
+  } else if (type === 'bossdefeat') {
+    [523, 659, 784, 1047].forEach((freq, i) => {
+      const o = audioCtx.createOscillator();
+      const gn = audioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq, now + i * 0.12);
+      gn.gain.setValueAtTime(0.15, now + i * 0.12);
+      gn.gain.linearRampToValueAtTime(0, now + i * 0.12 + 0.15);
+      o.connect(gn); gn.connect(audioCtx.destination);
+      o.start(now + i * 0.12); o.stop(now + i * 0.12 + 0.15);
+    });
+  }
+}
+
+// ============================================================
+// MOBILE TOUCH CONTROLS
+// ============================================================
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+const touchState = { left: false, right: false, jump: false };
+
+if (isTouchDevice) {
+  canvas.addEventListener('touchstart', handleTouch, { passive: false });
+  canvas.addEventListener('touchmove', handleTouch, { passive: false });
+  canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+  canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+}
+
+function handleTouch(e) {
+  e.preventDefault();
+  initAudio();
+  touchState.left = false;
+  touchState.right = false;
+  touchState.jump = false;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const scaleY = H / rect.height;
+  for (const touch of e.touches) {
+    const tx = (touch.clientX - rect.left) * scaleX;
+    const ty = (touch.clientY - rect.top) * scaleY;
+    // Left button: bottom-left
+    if (tx < 200 && ty > H - 200) touchState.left = true;
+    // Right button: left side, further right
+    if (tx >= 200 && tx < 400 && ty > H - 200) touchState.right = true;
+    // Jump button: bottom-right
+    if (tx > W - 250 && ty > H - 250) touchState.jump = true;
+    // Any touch on title/gameover = space
+    if (gameState === 'title' || gameState === 'gameover' || gameState === 'victory' || gameState === 'levelIntro') {
+      keys['Space'] = true;
+    }
+  }
+  keys['ArrowLeft'] = touchState.left;
+  keys['ArrowRight'] = touchState.right;
+  if (touchState.jump && !keys['Space']) keys['Space'] = true;
+}
+
+function handleTouchEnd(e) {
+  e.preventDefault();
+  if (e.touches.length === 0) {
+    touchState.left = false;
+    touchState.right = false;
+    touchState.jump = false;
+    keys['ArrowLeft'] = false;
+    keys['ArrowRight'] = false;
+    keys['Space'] = false;
+  } else {
+    handleTouch(e);
+  }
+}
+
+function drawTouchControls() {
+  if (!isTouchDevice) return;
+  ctx.globalAlpha = 0.3;
+
+  // Left arrow
+  ctx.fillStyle = touchState.left ? '#FFD700' : '#fff';
+  ctx.beginPath();
+  ctx.arc(120, H - 120, 60, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.moveTo(140, H - 145);
+  ctx.lineTo(100, H - 120);
+  ctx.lineTo(140, H - 95);
+  ctx.closePath();
+  ctx.fill();
+
+  // Right arrow
+  ctx.fillStyle = touchState.right ? '#FFD700' : '#fff';
+  ctx.beginPath();
+  ctx.arc(300, H - 120, 60, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.moveTo(280, H - 145);
+  ctx.lineTo(320, H - 120);
+  ctx.lineTo(280, H - 95);
+  ctx.closePath();
+  ctx.fill();
+
+  // Jump button
+  ctx.fillStyle = touchState.jump ? '#FFD700' : '#C41230';
+  ctx.beginPath();
+  ctx.arc(W - 140, H - 140, 70, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 36px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('JUMP', W - 140, H - 130);
+  ctx.textAlign = 'left';
+
+  ctx.globalAlpha = 1;
+}
 
 // ============================================================
 // PLAYER
@@ -339,6 +526,7 @@ function updatePlayer() {
   if (keys['Space'] && !player.jumpPressed) {
     if (player.jumps < player.maxJumps) {
       player.vy = player.jumps === 0 ? JUMP_FORCE : JUMP_FORCE * 0.9;
+      playSound(player.jumps === 0 ? 'jump' : 'doublejump');
       player.jumps++;
       player.onGround = false;
       player.jumpPressed = true;
@@ -411,9 +599,10 @@ function updatePlayer() {
   // Check goal — in playing mode, reaching goal triggers next level or boss
   if (gameState === 'playing' && player.x + player.w / 2 > goalX && goalX > 0) {
     if (levelInfo[currentLevel].boss) {
-      // Start boss fight
-      gameState = 'bossFight';
+      // Start boss fight with dramatic entrance
+      gameState = 'bossEntrance';
       bossDeathCount = 0;
+      levelIntroTimer = 90; // 1.5 second entrance
       spawnBoss();
     } else {
       // No boss — advance level
@@ -488,8 +677,11 @@ function updateEnemies() {
     if (rectsOverlap(player, e)) {
       if (player.vy > 0 && player.y + player.h - 16 < e.y + e.h / 2) {
         e.alive = false;
+        e.squish = 5; // squish animation frames
         player.vy = -10;
         score += 200;
+        playSound('stomp');
+        screenShake = 3;
         spawnParticles(e.x + e.w / 2, e.y + e.h / 2, '#ff4444', 8);
       } else {
         playerHit();
@@ -502,6 +694,13 @@ function playerHit() {
   player.invincible = 90;
   player.vy = -8;
   player.vx = player.facing * -5;
+  screenShake = 6;
+  playSound('hit');
+  if (assistMode) {
+    // Knockback and flash but no damage
+    spawnParticles(player.x + player.w / 2, player.y + player.h / 2, '#ffffff', 5);
+    return;
+  }
   lives--;
   if (lives <= 0) {
     player.dead = true;
@@ -547,10 +746,14 @@ function updateBoss() {
       boss.hitFlash = 15;
       player.vy = -12;
       score += 500;
+      playSound('bossstomp');
+      screenShake = 8;
       spawnParticles(boss.x + boss.w / 2, boss.y + 10, '#FFD700', 10);
       if (boss.hp <= 0) {
         boss.alive = false;
         score += 2000;
+        playSound('bossdefeat');
+        screenShake = 15;
         spawnParticles(boss.x + boss.w / 2, boss.y + boss.h / 2, '#C41230', 20);
         spawnParticles(boss.x + boss.w / 2, boss.y + boss.h / 2, '#FFD700', 20);
         gameState = 'bossDefeated';
@@ -618,6 +821,7 @@ function updateCollectibles() {
     if (!player.dead && rectsOverlap(player, { x: c.x, y: c.y + Math.sin(c.bobOffset) * 3, w: c.w, h: c.h })) {
       c.collected = true;
       score += 100;
+      playSound('coin');
       spawnParticles(c.x + c.w / 2, c.y + c.h / 2, '#FFD700', 6);
     }
   }
@@ -631,6 +835,7 @@ function updateHealthPickups() {
       h.collected = true;
       lives = Math.min(lives + 2, 7);
       score += 250;
+      playSound('health');
       spawnParticles(h.x + h.w / 2, h.y + h.h / 2, '#C41230', 10);
       spawnParticles(h.x + h.w / 2, h.y + h.h / 2, '#FFD700', 10);
     }
@@ -1072,6 +1277,20 @@ function drawBossProjectile(p) {
 // DRAWING — ENEMIES & COLLECTIBLES
 // ============================================================
 function drawEnemy(e) {
+  // Squish animation for stomped enemies
+  if (e.squish > 0) {
+    e.squish--;
+    const x = e.x - camera.x;
+    const y = e.y;
+    ctx.save();
+    ctx.translate(x + e.w / 2, y + e.h);
+    ctx.scale(2 + (5 - e.squish) * 0.3, 0.3);
+    ctx.translate(-(e.w / 2), -(e.h));
+    ctx.fillStyle = '#888';
+    ctx.fillRect(0, 0, 28, 28);
+    ctx.restore();
+    return;
+  }
   if (!e.alive) return;
   const x = e.x - camera.x;
   const y = e.y;
@@ -1191,20 +1410,72 @@ function drawCollectible(c) {
   if (c.collected) return;
   const x = c.x - camera.x;
   const y = c.y + Math.sin(c.bobOffset) * 5;
-  const sparkle = Math.sin(frameCount * 0.1) * 0.3 + 0.7;
+
+  // Spinning coin effect — squish horizontally
+  const spin = Math.abs(Math.cos(frameCount * 0.06 + c.bobOffset));
+  const coinW = 20 * spin; // width squishes as it "spins"
 
   ctx.save();
-  ctx.translate(x, y);
+  ctx.translate(x + 24, y + 24);
   ctx.scale(2, 2);
 
-  ctx.fillStyle = `rgba(255, 215, 0, ${sparkle})`;
-  ctx.fillRect(4, 2, 16, 20);
-  ctx.fillStyle = '#DAA520';
-  ctx.fillRect(2, 1, 20, 3);
-  ctx.fillRect(2, 20, 20, 3);
-  ctx.fillStyle = '#C41230';
-  ctx.fillRect(10, 7, 4, 8);
-  ctx.fillRect(8, 9, 8, 4);
+  // Coin body
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, coinW / 2, 11, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Dark edge
+  ctx.strokeStyle = '#DAA520';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, coinW / 2, 11, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Inner circle
+  if (spin > 0.3) {
+    ctx.fillStyle = '#C41230';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, coinW / 2 - 2, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Themed Scotty silhouette (only when coin faces forward enough)
+    if (spin > 0.5) {
+      ctx.fillStyle = '#1a1a1a';
+      const sw = coinW / 20; // scale with spin
+      if (currentLevel === 0) {
+        // Doha: Scotty with keffiyeh — head + small triangle cloth
+        ctx.fillRect(-3 * sw, -4, 6 * sw, 5); // head
+        ctx.fillRect(-2 * sw, 1, 4 * sw, 3);  // body
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-4 * sw, -5, 8 * sw, 2); // keffiyeh band
+        ctx.fillRect(-3 * sw, -6, 2 * sw, 2); // keffiyeh drape
+      } else if (currentLevel === 1) {
+        // Rwanda: Scotty with drum
+        ctx.fillRect(-3 * sw, -4, 5 * sw, 5); // head
+        ctx.fillRect(-2 * sw, 1, 4 * sw, 3);  // body
+        ctx.fillStyle = '#DAA520';
+        ctx.fillRect(1 * sw, 0, 3 * sw, 4);   // drum
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(1 * sw, -1, 3 * sw, 1);  // drum top
+      } else if (currentLevel === 2) {
+        // Silicon Valley: Scotty with laptop
+        ctx.fillRect(-3 * sw, -4, 5 * sw, 5); // head
+        ctx.fillRect(-2 * sw, 1, 4 * sw, 3);  // body
+        ctx.fillStyle = '#aaa';
+        ctx.fillRect(-1 * sw, 2, 5 * sw, 2);  // laptop base
+        ctx.fillStyle = '#6af';
+        ctx.fillRect(-1 * sw, 0, 5 * sw, 2);  // laptop screen
+      } else {
+        // Pittsburgh: Scotty with hard hat
+        ctx.fillRect(-3 * sw, -3, 5 * sw, 5); // head
+        ctx.fillRect(-2 * sw, 2, 4 * sw, 3);  // body
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(-4 * sw, -5, 8 * sw, 3); // hard hat
+        ctx.fillRect(-3 * sw, -6, 6 * sw, 2); // hat dome
+      }
+    }
+  }
 
   ctx.restore();
 }
@@ -1813,27 +2084,54 @@ function drawTitle() {
   ctx.fillStyle = '#C41230';
   ctx.font = 'bold 80px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('SCOTTY RUN', W / 2, H / 2 - 130);
+  ctx.fillText('SCOTTY RUN', W / 2, H / 2 - 150);
 
   ctx.fillStyle = '#FFD700';
   ctx.font = 'bold 28px monospace';
-  ctx.fillText('A CMU Global Adventure', W / 2, H / 2 - 70);
+  ctx.fillText('A CMU Global Adventure', W / 2, H / 2 - 90);
 
   ctx.fillStyle = '#fff';
   ctx.font = '22px monospace';
-  ctx.fillText('Doha \u2022 Kigali \u2022 Silicon Valley \u2022 Pittsburgh', W / 2, H / 2 - 30);
+  ctx.fillText('Doha \u2022 Kigali \u2022 Silicon Valley \u2022 Pittsburgh', W / 2, H / 2 - 55);
 
-  drawScotty(W / 2 - 24, H / 2 + 10, 1, Math.floor(frameCount / 15) % 2, 0);
+  drawScotty(W / 2 - 24, H / 2 - 20, 1, Math.floor(frameCount / 15) % 2, 0);
 
-  ctx.fillStyle = '#fff';
-  ctx.font = '24px monospace';
+  // Mode selection
+  ctx.font = 'bold 26px monospace';
   const blink = Math.sin(frameCount * 0.06) > 0;
-  if (blink) ctx.fillText('Press SPACE to Start', W / 2, H / 2 + 120);
+
+  // Normal mode box
+  ctx.fillStyle = assistMode ? 'rgba(50,50,80,0.5)' : 'rgba(50,50,80,0.9)';
+  ctx.fillRect(W / 2 - 340, H / 2 + 50, 310, 60);
+  ctx.strokeStyle = assistMode ? '#555' : '#FFD700';
+  ctx.lineWidth = assistMode ? 1 : 3;
+  ctx.strokeRect(W / 2 - 340, H / 2 + 50, 310, 60);
+  ctx.fillStyle = assistMode ? '#888' : '#FFD700';
+  ctx.fillText('[N] Normal Mode', W / 2 - 185, H / 2 + 82);
+  ctx.font = '14px monospace';
+  ctx.fillText('Full challenge, earn letter grades', W / 2 - 185, H / 2 + 100);
+
+  // Assist mode box
+  ctx.font = 'bold 26px monospace';
+  ctx.fillStyle = assistMode ? 'rgba(50,80,50,0.9)' : 'rgba(50,50,80,0.5)';
+  ctx.fillRect(W / 2 + 30, H / 2 + 50, 310, 60);
+  ctx.strokeStyle = assistMode ? '#4a9' : '#555';
+  ctx.lineWidth = assistMode ? 3 : 1;
+  ctx.strokeRect(W / 2 + 30, H / 2 + 50, 310, 60);
+  ctx.fillStyle = assistMode ? '#4a9' : '#888';
+  ctx.fillText('[A] Assist Mode', W / 2 + 185, H / 2 + 82);
+  ctx.font = '14px monospace';
+  ctx.fillText('Can\'t die, max grade: C', W / 2 + 185, H / 2 + 100);
+
+  // Start prompt
+  ctx.font = '24px monospace';
+  ctx.fillStyle = '#fff';
+  if (blink) ctx.fillText('Press SPACE to Start', W / 2, H / 2 + 150);
 
   ctx.fillStyle = '#888';
-  ctx.font = '20px monospace';
-  ctx.fillText('\u2190 \u2192 Move   SPACE Jump (x2 for Double Jump!)', W / 2, H / 2 + 170);
-  ctx.fillText('Stomp enemies & bosses! Collect diplomas!', W / 2, H / 2 + 200);
+  ctx.font = '18px monospace';
+  ctx.fillText('\u2190 \u2192 Move   SPACE Jump (x2 for Double Jump!)', W / 2, H / 2 + 190);
+  ctx.fillText('Stomp enemies & bosses! Collect Scotty coins!', W / 2, H / 2 + 215);
 
   ctx.textAlign = 'left';
 }
@@ -1968,8 +2266,14 @@ function calculateGrade() {
   const totalCollectibles = allLevelData.reduce((sum, lvl) => {
     return sum + lvl.join('').split('').filter(c => c === '3').length;
   }, 0);
-  const maxScore = totalCollectibles * 100 + 4 * 2000 + 20 * 200 + 3 * 500 * 5; // collectibles + boss defeats + enemy stomps + boss stomps
+  const maxScore = totalCollectibles * 100 + 4 * 2000 + 20 * 200 + 3 * 500 * 5;
   const pct = score / Math.max(maxScore, 1);
+
+  // Assist mode caps grade at C
+  if (assistMode) {
+    if (pct >= 0.25) return { letter: 'C', label: 'Satisfactory (Assist Mode)', color: '#ccc' };
+    return { letter: 'D', label: 'Academic Probation', color: '#ff6666' };
+  }
 
   if (pct >= 0.9 && lives >= 4) return { letter: 'A+', label: 'Summa Cum Laude', color: '#FFD700' };
   if (pct >= 0.8) return { letter: 'A', label: 'Magna Cum Laude', color: '#FFD700' };
@@ -2074,7 +2378,10 @@ function update() {
   frameCount++;
 
   if (gameState === 'title') {
+    if (keys['KeyN']) { assistMode = false; keys['KeyN'] = false; }
+    if (keys['KeyA']) { assistMode = true; keys['KeyA'] = false; }
     if (keys['Space']) {
+      initAudio();
       resetGame();
       keys['Space'] = false;
     }
@@ -2091,6 +2398,12 @@ function update() {
     updateHealthPickups();
     updateParticles();
     updateCamera();
+  } else if (gameState === 'bossEntrance') {
+    levelIntroTimer--;
+    updateCamera();
+    if (levelIntroTimer <= 0) {
+      gameState = 'bossFight';
+    }
   } else if (gameState === 'bossFight') {
     updatePlayer();
     updateEnemies();
@@ -2138,10 +2451,45 @@ function update() {
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
+  // Screen shake
+  if (screenShake > 0) {
+    screenShakeX = (Math.random() - 0.5) * screenShake * 2;
+    screenShakeY = (Math.random() - 0.5) * screenShake * 2;
+    screenShake--;
+    ctx.save();
+    ctx.translate(screenShakeX, screenShakeY);
+  }
+
   if (gameState === 'title') {
     drawTitle();
   } else if (gameState === 'levelIntro') {
     drawLevelIntro();
+  } else if (gameState === 'bossEntrance') {
+    drawBackground();
+    drawTiles();
+    drawGoal();
+    for (const c of collectibles) drawCollectible(c);
+    for (const h of healthPickups) drawHealthPickup(h);
+    for (const e of enemies) drawEnemy(e);
+    drawBoss();
+    drawScotty(player.x - camera.x, player.y, player.facing, player.animFrame, player.invincible);
+    drawHUD();
+    // Dramatic overlay
+    const fade = Math.min(1, levelIntroTimer / 60);
+    ctx.fillStyle = `rgba(0,0,0,${fade * 0.6})`;
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ff4444';
+    ctx.font = 'bold 28px monospace';
+    ctx.fillText('WARNING', W / 2, H / 2 - 50);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 48px monospace';
+    ctx.fillText(boss ? boss.name : 'BOSS', W / 2, H / 2 + 10);
+    ctx.fillStyle = '#aaa';
+    ctx.font = '22px monospace';
+    ctx.fillText(boss ? boss.title : '', W / 2, H / 2 + 45);
+    ctx.textAlign = 'left';
+    drawTouchControls();
   } else if (gameState === 'playing' || gameState === 'bossFight') {
     drawBackground();
     drawTiles();
@@ -2153,9 +2501,30 @@ function draw() {
       drawBoss();
       for (const p of bossProjectiles) drawBossProjectile(p);
     }
-    drawScotty(player.x - camera.x, player.y, player.facing, player.animFrame, player.invincible);
+    // Player — spin if dead
+    if (player.dead) {
+      ctx.save();
+      const px = player.x - camera.x + player.w / 2;
+      const py = player.y + player.h / 2;
+      ctx.translate(px, py);
+      ctx.rotate(player.deadTimer * 0.15);
+      ctx.translate(-px, -py);
+      drawScotty(player.x - camera.x, player.y, player.facing, player.animFrame, player.invincible);
+      ctx.restore();
+    } else {
+      drawScotty(player.x - camera.x, player.y, player.facing, player.animFrame, player.invincible);
+    }
     drawParticles();
     drawHUD();
+    // Assist mode indicator
+    if (assistMode) {
+      ctx.fillStyle = 'rgba(74, 153, 100, 0.6)';
+      ctx.font = 'bold 16px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('ASSIST MODE', W - 20, H - 20);
+      ctx.textAlign = 'left';
+    }
+    drawTouchControls();
   } else if (gameState === 'passNoPass') {
     drawPassNoPass();
   } else if (gameState === 'bossDefeated') {
@@ -2172,6 +2541,11 @@ function draw() {
     drawParticles();
     drawHUD();
     drawVictory();
+  }
+
+  if (screenShakeX !== 0 || screenShakeY !== 0) {
+    ctx.restore();
+    if (screenShake <= 0) { screenShakeX = 0; screenShakeY = 0; }
   }
 }
 
