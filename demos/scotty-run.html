@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scotty Run — CMU Platformer</title>
+<title>Scotty Run — CMU Global Platformer</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -25,72 +25,125 @@
 <canvas id="game"></canvas>
 <script>
 // ============================================================
-// SCOTTY RUN — A CMU Platformer
+// SCOTTY RUN — A CMU Global Platformer (4 Levels)
 // ============================================================
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
-// Canvas sizing
 const W = 800, H = 480;
 canvas.width = W;
 canvas.height = H;
 
-// Tile size
-const T = 32;
+const T = 32; // tile size
 
 // ============================================================
-// LEVEL DATA
-// 0=air, 1=ground, 2=brick platform, 3=collectible, 4=enemy, 5=goal
-// Level is 75 tiles wide x 15 tiles tall (2400 x 480)
+// LEVEL DATA — 4 levels, 75 tiles wide x 15 tiles tall
+// 0=air, 1=ground, 2=brick, 3=collectible, 4=enemy, 5=goal/boss-trigger
 // ============================================================
 const LEVEL_W = 75;
 const LEVEL_H = 15;
 
-// prettier-ignore
-const levelData = [
-// Row 0 (top)
-  '000000000000000000000000000000000000000000000000000000000000000000000000000',
-// Row 1
-  '000000000000000000000000000000000000000000000000000000000000000000000000000',
-// Row 2
-  '000000000000000000000000000000000000000000000000000000000000000000000000000',
-// Row 3
-  '000000000000000000000000000000000000000000000000000000000000000000000000000',
-// Row 4
-  '000000000000000000000000000000000000000000000000000000000000000000000000000',
-// Row 5
-  '000000000000000300030000000000000000003000000000000000000030000000000000000',
-// Row 6
-  '000000000000022222200000000000000000222200000000002220000022200000000000000',
-// Row 7
-  '000000000000000000000000003003000000000000000000000000000000000000000000000',
-// Row 8
-  '000000030000000000000000022222200000000000030000000000000000000222000000000',
-// Row 9
-  '000000222000000000000000000000000000000000222000000000000000000000000000000',
-// Row 10
-  '000000000000000000000300000000000000000000000000000000030000000000002220000',
-// Row 11
-  '000000000000000000002220000000003000000000000000000000222000000000000000050',
-// Row 12
-  '000000000004000000000000000000022200004000000004000000000000000040000000000',
-// Row 13
-  '111111111111111111100011111111111111111111111001111111111111111111111111111',
-// Row 14
-  '111111111111111111100011111111111111111111111001111111111111111111111111111',
+const allLevelData = [
+  // ---- LEVEL 1: Doha, Qatar (Easy — no boss) ----
+  [
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000300030000000000000000003000000000000000000030000000000000000',
+    '000000000000022222200000000000000000222200000000002220000022200000000000000',
+    '000000000000000000000000003003000000000000000000000000000000000000000000000',
+    '000000030000000000000000022222200000000000030000000000000000000222000000000',
+    '000000222000000000000000000000000000000000222000000000000000000000000000000',
+    '000000000000000000000300000000000000000000000000000000030000000000002220000',
+    '000000000000000000002220000000003000000000000000000000222000000000000000050',
+    '000000000004000000000000000000022200004000000004000000000000000040000000000',
+    '111111111111111111100011111111111111111111111001111111111111111111111111111',
+    '111111111111111111100011111111111111111111111001111111111111111111111111111',
+  ],
+  // ---- LEVEL 2: Rwanda, Africa (Medium — Boss: Fuad) ----
+  [
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000030000000000000000000000000000000300000000000000000000000000',
+    '000000000000002222000000000030000000000003000022220000000000030000000000000',
+    '000000000300000000000000002222000000000022200000000000000000222000000000000',
+    '000000022220000000000000000000000300000000000000000000300000000000000000000',
+    '000000000000000000000300000000002222000000000000000002222000000000000000000',
+    '000030000000000000002220000000000000000000000000000000000000000000000000000',
+    '000222000000000000000000000000000000003000000000000000000000030000000000000',
+    '000000000004000000000000000400000000022200000400000000000002220000000000050',
+    '000000000000000000000000000000000000000000000000000000000000000000004000000',
+    '111111111111111001111111111111111001111111111111111001111111111111111111111',
+    '111111111111111001111111111111111001111111111111111001111111111111111111111',
+  ],
+  // ---- LEVEL 3: Silicon Valley (Hard — Boss: Dudley) ----
+  [
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000000003000000000000000000000000000000300000000000000000000',
+    '000000000000000000000022200000000000000000003000000002220000000000000000000',
+    '000000000030000000000000000000000003000000022200000000000000030000000000000',
+    '000000002222000000000000000000000222200000000000000000000000222000000000000',
+    '000000000000000030000000000300000000000000000000030000000000000000000000000',
+    '000000000000000222000000002220000000000003000000222000000000000000000000000',
+    '000030000000000000000000000000000000000022200000000000000000000000000000000',
+    '002222000000000000000000000000000000000000000000000000000000000030000000000',
+    '000000000004000000000004000000000004000000000004000000000004002220000000050',
+    '000000000000000000000000000000000000000000000000000000000000000000000400000',
+    '111111111110011111001111111100111111110011111100111111110011111111111111111',
+    '111111111110011111001111111100111111110011111100111111110011111111111111111',
+  ],
+  // ---- LEVEL 4: Pittsburgh, PA (Hardest — Final Boss: Mike Trick) ----
+  [
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000000000000000000000000000000000000000000000000000000000000',
+    '000000000000000000030000000000000000000000030000000000000000300000000000000',
+    '000000000000000002220000000000000000000002220000000000000022200000000000000',
+    '000000000030000000000000003000000003000000000000030000000000000000000000000',
+    '000000002222000000000000022200000022200000000000222000000000000000000000000',
+    '000000000000000000030000000000000000000000030000000000030000000000000000000',
+    '000000000000000002220000000000000000000002220000000000222000000000000000000',
+    '000030000000000000000000000000000000000000000000000000000000000000000000000',
+    '002222000000000000000000000000000000000000000000000000000000000300000000000',
+    '000000000004000000000004000004000004000004000000040000040000022200000000050',
+    '000000000000000000000000000000000000000000000000000000000000000000000400000',
+    '111111110011110011001111110010011111100110011100111111100110111111111111111',
+    '111111110011110011001111110010011111100110011100111111100110111111111111111',
+  ],
 ];
 
-// Parse level into 2D array
-const level = levelData.map(row => row.split('').map(Number));
+// Level metadata
+const levelInfo = [
+  { name: 'Doha, Qatar',      boss: null,         bossHP: 0, subtitle: 'CMU-Q Campus' },
+  { name: 'Kigali, Rwanda',   boss: 'Fuad',       bossHP: 3, subtitle: 'CMU-Africa Campus',     bossTitle: 'Area Head, Business Administration' },
+  { name: 'Silicon Valley',   boss: 'Dudley',     bossHP: 4, subtitle: 'CMU-SV Campus',         bossTitle: 'Sr. Associate Dean for Education' },
+  { name: 'Pittsburgh, PA',   boss: 'Mike Trick',  bossHP: 5, subtitle: 'CMU Main Campus',      bossTitle: 'The Dean' },
+];
+
+// Active level (parsed into 2D array)
+let level = [];
+let currentLevel = 0;
+
+function loadLevel(idx) {
+  currentLevel = idx;
+  level = allLevelData[idx].map(row => row.split('').map(Number));
+}
 
 // ============================================================
 // GAME STATE
 // ============================================================
-let gameState = 'title'; // title, playing, gameover, victory
+let gameState = 'title'; // title, levelIntro, playing, bossFight, bossDefeated, gameover, victory
 let score = 0;
 let lives = 3;
 let camera = { x: 0 };
 let frameCount = 0;
+let levelIntroTimer = 0;
 
 // Input
 const keys = {};
@@ -110,15 +163,15 @@ const player = {
   w: 24, h: 28,
   vx: 0, vy: 0,
   onGround: false,
-  facing: 1, // 1=right, -1=left
+  facing: 1,
   animFrame: 0,
   animTimer: 0,
-  invincible: 0, // invincibility frames after hit
+  invincible: 0,
   dead: false,
   deadTimer: 0,
-  jumps: 0,       // tracks jumps used (0, 1, or 2)
-  maxJumps: 2,    // double jump
-  jumpPressed: false, // edge detection for spacebar
+  jumps: 0,
+  maxJumps: 2,
+  jumpPressed: false,
 };
 
 function resetPlayer() {
@@ -136,31 +189,38 @@ function resetPlayer() {
 }
 
 // ============================================================
-// ENTITIES (collectibles & enemies)
+// ENTITIES
 // ============================================================
 let collectibles = [];
 let enemies = [];
 let particles = [];
 let goalX = 0;
 
+// Boss state
+let boss = null;
+let bossProjectiles = [];
+
 function initEntities() {
   collectibles = [];
   enemies = [];
   particles = [];
+  bossProjectiles = [];
+  goalX = 0;
+  boss = null;
   for (let r = 0; r < LEVEL_H; r++) {
     for (let c = 0; c < LEVEL_W; c++) {
       const tile = level[r][c];
       if (tile === 3) {
         collectibles.push({ x: c * T + 4, y: r * T + 4, w: 24, h: 24, collected: false, bobOffset: Math.random() * Math.PI * 2 });
-        level[r][c] = 0; // clear from tile map
+        level[r][c] = 0;
       } else if (tile === 4) {
         enemies.push({
           x: c * T, y: r * T + 4, w: 28, h: 28,
-          vx: -1, alive: true,
+          vx: -1 - currentLevel * 0.3, alive: true,
           type: enemies.length % 2 === 0 ? 'exam' : 'bug',
           animTimer: 0,
           startX: c * T,
-          patrol: 80,
+          patrol: 80 + currentLevel * 10,
         });
         level[r][c] = 0;
       } else if (tile === 5) {
@@ -169,6 +229,29 @@ function initEntities() {
       }
     }
   }
+}
+
+function spawnBoss() {
+  const info = levelInfo[currentLevel];
+  if (!info.boss) return;
+  boss = {
+    x: goalX - 60,
+    y: 12 * T - 44,
+    w: 40, h: 44,
+    vx: 1.5 + currentLevel * 0.5,
+    hp: info.bossHP,
+    maxHP: info.bossHP,
+    name: info.boss,
+    title: info.bossTitle,
+    alive: true,
+    animTimer: 0,
+    attackTimer: 0,
+    attackCooldown: 120 - currentLevel * 20,
+    hitFlash: 0,
+    startX: goalX - 120,
+    patrol: 100,
+    phase: 1,
+  };
 }
 
 // ============================================================
@@ -192,6 +275,10 @@ function isSolid(px, py) {
   return t === 1 || t === 2;
 }
 
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
 function updatePlayer() {
   if (player.dead) {
     player.deadTimer++;
@@ -203,6 +290,9 @@ function updatePlayer() {
         gameState = 'gameover';
       } else {
         resetPlayer();
+        if (gameState === 'bossFight') {
+          // Respawn during boss fight — boss keeps HP
+        }
       }
     }
     return;
@@ -220,7 +310,7 @@ function updatePlayer() {
     if (Math.abs(player.vx) < 0.1) player.vx = 0;
   }
 
-  // Jump (double jump: press SPACE up to 2 times)
+  // Jump (double jump)
   if (keys['Space'] && !player.jumpPressed) {
     if (player.jumps < player.maxJumps) {
       player.vy = player.jumps === 0 ? JUMP_FORCE : JUMP_FORCE * 0.8;
@@ -231,16 +321,12 @@ function updatePlayer() {
   }
   if (!keys['Space']) player.jumpPressed = false;
 
-  // Reset jump count on landing
-  // (handled below after ground collision sets onGround = true)
-
   // Gravity
   player.vy += GRAVITY;
   if (player.vy > MAX_FALL) player.vy = MAX_FALL;
 
   // Move X
   player.x += player.vx;
-  // Clamp to level bounds
   if (player.x < 0) player.x = 0;
   if (player.x + player.w > LEVEL_W * T) player.x = LEVEL_W * T - player.w;
 
@@ -263,15 +349,13 @@ function updatePlayer() {
   // Y collision
   player.onGround = false;
   if (player.vy > 0) {
-    // Falling — check feet
     if (isSolid(player.x + 2, player.y + player.h) || isSolid(player.x + player.w - 2, player.y + player.h)) {
       player.y = Math.floor((player.y + player.h) / T) * T - player.h;
       player.vy = 0;
       player.onGround = true;
-      player.jumps = 0; // reset double jump on landing
+      player.jumps = 0;
     }
   } else if (player.vy < 0) {
-    // Rising — check head
     if (isSolid(player.x + 2, player.y) || isSolid(player.x + player.w - 2, player.y)) {
       player.y = Math.floor(player.y / T) * T + T;
       player.vy = 0;
@@ -281,7 +365,7 @@ function updatePlayer() {
   // Fall off screen
   if (player.y > LEVEL_H * T + 50) {
     player.dead = true;
-    player.deadTimer = 30; // quick respawn
+    player.deadTimer = 30;
   }
 
   // Invincibility countdown
@@ -299,10 +383,35 @@ function updatePlayer() {
     player.animTimer = 0;
   }
 
-  // Check victory
-  if (player.x + player.w / 2 > goalX && goalX > 0) {
-    gameState = 'victory';
+  // Check goal — in playing mode, reaching goal triggers next level or boss
+  if (gameState === 'playing' && player.x + player.w / 2 > goalX && goalX > 0) {
+    if (levelInfo[currentLevel].boss) {
+      // Start boss fight
+      gameState = 'bossFight';
+      spawnBoss();
+    } else {
+      // No boss — advance level
+      advanceLevel();
+    }
   }
+}
+
+function advanceLevel() {
+  if (currentLevel >= 3) {
+    gameState = 'victory';
+  } else {
+    currentLevel++;
+    startLevel(currentLevel);
+  }
+}
+
+function startLevel(idx) {
+  loadLevel(idx);
+  initEntities();
+  resetPlayer();
+  camera.x = 0;
+  gameState = 'levelIntro';
+  levelIntroTimer = 150; // ~2.5 seconds
 }
 
 // ============================================================
@@ -312,18 +421,15 @@ function updateEnemies() {
   for (const e of enemies) {
     if (!e.alive) continue;
 
-    // Patrol
     e.x += e.vx;
     if (e.x < e.startX - e.patrol || e.x > e.startX + e.patrol) {
       e.vx *= -1;
     }
 
-    // Check against solid tiles
     const nextX = e.x + (e.vx > 0 ? e.w : 0);
     if (isSolid(nextX, e.y + e.h - 2)) {
       e.vx *= -1;
     }
-    // Don't walk off edges
     const footX = e.vx > 0 ? e.x + e.w + 2 : e.x - 2;
     if (!isSolid(footX, e.y + e.h + 2)) {
       e.vx *= -1;
@@ -331,34 +437,132 @@ function updateEnemies() {
 
     e.animTimer++;
 
-    // Collision with player
     if (player.dead || player.invincible > 0) continue;
     if (rectsOverlap(player, e)) {
-      // Stomp?
       if (player.vy > 0 && player.y + player.h - 8 < e.y + e.h / 2) {
-        // Stomp!
         e.alive = false;
         player.vy = -6;
         score += 200;
         spawnParticles(e.x + e.w / 2, e.y + e.h / 2, '#ff4444', 8);
       } else {
-        // Hit!
-        player.invincible = 90;
-        player.vy = -5;
-        player.vx = player.x < e.x ? -3 : 3;
-        lives--;
-        if (lives <= 0) {
-          player.dead = true;
-          player.vy = -8;
-        }
-        spawnParticles(player.x + player.w / 2, player.y + player.h / 2, '#ffffff', 5);
+        playerHit();
       }
     }
   }
 }
 
+function playerHit() {
+  player.invincible = 90;
+  player.vy = -5;
+  player.vx = player.facing * -3;
+  lives--;
+  if (lives <= 0) {
+    player.dead = true;
+    player.vy = -8;
+  }
+  spawnParticles(player.x + player.w / 2, player.y + player.h / 2, '#ffffff', 5);
+}
+
 // ============================================================
-// COLLECTIBLES UPDATE
+// BOSS UPDATE
+// ============================================================
+function updateBoss() {
+  if (!boss || !boss.alive) return;
+
+  boss.animTimer++;
+  if (boss.hitFlash > 0) boss.hitFlash--;
+
+  // Movement — pace back and forth
+  boss.x += boss.vx;
+  if (boss.x < boss.startX - boss.patrol || boss.x > boss.startX + boss.patrol) {
+    boss.vx *= -1;
+  }
+
+  // Attack — throw projectiles
+  boss.attackTimer++;
+  if (boss.attackTimer >= boss.attackCooldown) {
+    boss.attackTimer = 0;
+    fireBossProjectile();
+  }
+
+  // Enrage at low HP — faster movement and attacks
+  if (boss.hp <= Math.ceil(boss.maxHP / 2) && boss.phase === 1) {
+    boss.phase = 2;
+    boss.vx *= 1.5;
+    boss.attackCooldown = Math.max(40, boss.attackCooldown - 30);
+  }
+
+  // Collision with player
+  if (!player.dead && player.invincible <= 0 && rectsOverlap(player, boss)) {
+    if (player.vy > 0 && player.y + player.h - 8 < boss.y + boss.h / 2) {
+      // Stomp boss
+      boss.hp--;
+      boss.hitFlash = 15;
+      player.vy = -8;
+      score += 500;
+      spawnParticles(boss.x + boss.w / 2, boss.y + 10, '#FFD700', 10);
+      if (boss.hp <= 0) {
+        boss.alive = false;
+        score += 2000;
+        spawnParticles(boss.x + boss.w / 2, boss.y + boss.h / 2, '#C41230', 20);
+        spawnParticles(boss.x + boss.w / 2, boss.y + boss.h / 2, '#FFD700', 20);
+        gameState = 'bossDefeated';
+        levelIntroTimer = 180;
+      }
+    } else {
+      playerHit();
+    }
+  }
+}
+
+function fireBossProjectile() {
+  const dx = player.x - boss.x;
+  const dy = player.y - boss.y;
+  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+  const speed = 2.5 + currentLevel * 0.5;
+
+  bossProjectiles.push({
+    x: boss.x + boss.w / 2,
+    y: boss.y + boss.h / 2,
+    vx: (dx / dist) * speed,
+    vy: (dy / dist) * speed,
+    w: 12, h: 12,
+    life: 200,
+    type: currentLevel, // different projectile per boss
+  });
+
+  // Mike Trick fires extra projectiles
+  if (currentLevel === 3 && boss.phase === 2) {
+    bossProjectiles.push({
+      x: boss.x + boss.w / 2,
+      y: boss.y + boss.h / 2,
+      vx: (dx / dist) * speed + 1,
+      vy: (dy / dist) * speed - 1,
+      w: 12, h: 12,
+      life: 200,
+      type: currentLevel,
+    });
+  }
+}
+
+function updateBossProjectiles() {
+  for (let i = bossProjectiles.length - 1; i >= 0; i--) {
+    const p = bossProjectiles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+    if (p.life <= 0) { bossProjectiles.splice(i, 1); continue; }
+
+    // Hit player
+    if (!player.dead && player.invincible <= 0 && rectsOverlap(player, p)) {
+      playerHit();
+      bossProjectiles.splice(i, 1);
+    }
+  }
+}
+
+// ============================================================
+// COLLECTIBLES & PARTICLES
 // ============================================================
 function updateCollectibles() {
   for (const c of collectibles) {
@@ -372,9 +576,6 @@ function updateCollectibles() {
   }
 }
 
-// ============================================================
-// PARTICLES
-// ============================================================
 function spawnParticles(x, y, color, count) {
   for (let i = 0; i < count; i++) {
     particles.push({
@@ -400,13 +601,6 @@ function updateParticles() {
 }
 
 // ============================================================
-// UTILITY
-// ============================================================
-function rectsOverlap(a, b) {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
-
-// ============================================================
 // CAMERA
 // ============================================================
 function updateCamera() {
@@ -417,12 +611,10 @@ function updateCamera() {
 }
 
 // ============================================================
-// DRAWING
+// DRAWING — SCOTTY
 // ============================================================
-
-// Draw Scotty (pixel art terrier)
 function drawScotty(x, y, facing, animFrame, invincible) {
-  if (invincible > 0 && Math.floor(invincible / 4) % 2 === 0) return; // blink
+  if (invincible > 0 && Math.floor(invincible / 4) % 2 === 0) return;
 
   ctx.save();
   ctx.translate(x + 12, y + 14);
@@ -431,11 +623,9 @@ function drawScotty(x, y, facing, animFrame, invincible) {
 
   const run = animFrame === 1;
 
-  // Body (Black Scotty)
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(2, 8, 18, 12);
 
-  // Legs
   ctx.fillStyle = '#111';
   if (run) {
     ctx.fillRect(3, 20, 4, 7);
@@ -445,7 +635,6 @@ function drawScotty(x, y, facing, animFrame, invincible) {
     ctx.fillRect(15, 20, 4, 6);
   }
 
-  // Paws
   ctx.fillStyle = '#333';
   if (run) {
     ctx.fillRect(2, 26, 6, 2);
@@ -455,29 +644,23 @@ function drawScotty(x, y, facing, animFrame, invincible) {
     ctx.fillRect(14, 25, 6, 2);
   }
 
-  // Head
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(14, 0, 12, 12);
 
-  // Ear
   ctx.fillStyle = '#111';
   ctx.fillRect(22, -2, 4, 5);
 
-  // Snout
   ctx.fillStyle = '#555';
   ctx.fillRect(12, 4, 4, 5);
 
-  // Nose
   ctx.fillStyle = '#333';
   ctx.fillRect(11, 4, 3, 3);
 
-  // Eye
   ctx.fillStyle = '#fff';
   ctx.fillRect(19, 2, 4, 4);
   ctx.fillStyle = '#222';
   ctx.fillRect(20, 3, 2, 2);
 
-  // Tail
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(-2, 6, 5, 3);
   ctx.fillRect(-4, 4, 3, 3);
@@ -492,7 +675,6 @@ function drawScotty(x, y, facing, animFrame, invincible) {
   ctx.restore();
 }
 
-// Draw Scotty head (for lives/title)
 function drawScottyHead(x, y, size) {
   const s = size / 16;
   ctx.save();
@@ -513,7 +695,219 @@ function drawScottyHead(x, y, size) {
   ctx.restore();
 }
 
-// Draw enemy
+// ============================================================
+// DRAWING — BOSSES
+// ============================================================
+function drawBoss() {
+  if (!boss || !boss.alive) return;
+  const x = boss.x - camera.x;
+  const y = boss.y;
+  const wobble = Math.sin(boss.animTimer * 0.08) * 2;
+
+  if (boss.hitFlash > 0 && Math.floor(boss.hitFlash / 2) % 2 === 0) {
+    ctx.globalAlpha = 0.5;
+  }
+
+  ctx.save();
+  // Face player
+  const facingPlayer = player.x > boss.x ? 1 : -1;
+  ctx.translate(x + 20, y + 22);
+  ctx.scale(facingPlayer, 1);
+  ctx.translate(-20, -22);
+
+  if (currentLevel === 1) {
+    // Fuad — businessman with briefcase
+    // Body (suit)
+    ctx.fillStyle = '#2c3e50';
+    ctx.fillRect(5, 16 + wobble, 30, 24);
+    // Shirt/tie
+    ctx.fillStyle = '#ecf0f1';
+    ctx.fillRect(15, 16 + wobble, 10, 24);
+    ctx.fillStyle = '#C41230';
+    ctx.fillRect(18, 16 + wobble, 4, 20);
+    // Head
+    ctx.fillStyle = '#d4a574';
+    ctx.fillRect(8, 0 + wobble, 24, 18);
+    // Hair
+    ctx.fillStyle = '#222';
+    ctx.fillRect(8, 0 + wobble, 24, 6);
+    // Glasses
+    ctx.fillStyle = '#333';
+    ctx.fillRect(10, 8 + wobble, 8, 6);
+    ctx.fillRect(22, 8 + wobble, 8, 6);
+    ctx.fillStyle = '#6af';
+    ctx.fillRect(11, 9 + wobble, 6, 4);
+    ctx.fillRect(23, 9 + wobble, 6, 4);
+    ctx.fillRect(18, 10 + wobble, 4, 2);
+    // Mouth
+    ctx.fillStyle = '#a0522d';
+    ctx.fillRect(16, 14 + wobble, 8, 2);
+    // Legs
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(8, 38 + wobble, 10, 6);
+    ctx.fillRect(22, 38 + wobble, 10, 6);
+    // Briefcase
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(-4, 28, 12, 10);
+    ctx.fillStyle = '#DAA520';
+    ctx.fillRect(-1, 28, 6, 2);
+  } else if (currentLevel === 2) {
+    // Dudley — academic with books
+    // Body (tweed jacket)
+    ctx.fillStyle = '#8B7355';
+    ctx.fillRect(5, 16 + wobble, 30, 24);
+    // Elbow patches
+    ctx.fillStyle = '#654321';
+    ctx.fillRect(3, 24 + wobble, 6, 8);
+    ctx.fillRect(31, 24 + wobble, 6, 8);
+    // Shirt
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(14, 16 + wobble, 12, 6);
+    // Bow tie
+    ctx.fillStyle = '#C41230';
+    ctx.fillRect(15, 16 + wobble, 4, 4);
+    ctx.fillRect(21, 16 + wobble, 4, 4);
+    ctx.fillRect(19, 17 + wobble, 2, 2);
+    // Head
+    ctx.fillStyle = '#e8c4a0';
+    ctx.fillRect(8, 0 + wobble, 24, 18);
+    // Hair (gray, distinguished)
+    ctx.fillStyle = '#888';
+    ctx.fillRect(8, 0 + wobble, 24, 5);
+    ctx.fillRect(8, 0 + wobble, 4, 10);
+    ctx.fillRect(28, 0 + wobble, 4, 10);
+    // Eyes
+    ctx.fillStyle = '#333';
+    ctx.fillRect(14, 8 + wobble, 4, 4);
+    ctx.fillRect(22, 8 + wobble, 4, 4);
+    // Smile
+    ctx.fillStyle = '#a0522d';
+    ctx.fillRect(16, 14 + wobble, 8, 2);
+    // Legs
+    ctx.fillStyle = '#4a4a4a';
+    ctx.fillRect(8, 38 + wobble, 10, 6);
+    ctx.fillRect(22, 38 + wobble, 10, 6);
+    // Stack of books
+    ctx.fillStyle = '#C41230';
+    ctx.fillRect(-6, 24, 10, 4);
+    ctx.fillStyle = '#2980b9';
+    ctx.fillRect(-6, 28, 10, 4);
+    ctx.fillStyle = '#27ae60';
+    ctx.fillRect(-6, 32, 10, 4);
+  } else if (currentLevel === 3) {
+    // Mike Trick — The Dean (imposing, graduation robes)
+    // Graduation robe
+    ctx.fillStyle = '#111';
+    ctx.fillRect(3, 14 + wobble, 34, 28);
+    // Robe opening — CMU red
+    ctx.fillStyle = '#C41230';
+    ctx.fillRect(15, 14 + wobble, 10, 28);
+    // Gold trim
+    ctx.fillStyle = '#FFD700';
+    ctx.fillRect(3, 14 + wobble, 34, 2);
+    ctx.fillRect(3, 40 + wobble, 34, 2);
+    // Head
+    ctx.fillStyle = '#d4a574';
+    ctx.fillRect(8, 0 + wobble, 24, 16);
+    // Hair
+    ctx.fillStyle = '#555';
+    ctx.fillRect(8, 0 + wobble, 24, 5);
+    // Graduation cap (mortarboard)
+    ctx.fillStyle = '#111';
+    ctx.fillRect(4, -4 + wobble, 32, 4);
+    ctx.fillRect(10, -8 + wobble, 20, 6);
+    // Tassel
+    ctx.fillStyle = '#FFD700';
+    ctx.fillRect(4, -4 + wobble, 2, 10);
+    ctx.fillRect(1, 4 + wobble, 6, 3);
+    // Eyes (determined)
+    ctx.fillStyle = '#333';
+    ctx.fillRect(14, 6 + wobble, 4, 4);
+    ctx.fillRect(22, 6 + wobble, 4, 4);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(15, 7 + wobble, 2, 2);
+    ctx.fillRect(23, 7 + wobble, 2, 2);
+    // Stern mouth
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(15, 12 + wobble, 10, 2);
+    // Legs
+    ctx.fillStyle = '#111';
+    ctx.fillRect(8, 40 + wobble, 10, 6);
+    ctx.fillRect(22, 40 + wobble, 10, 6);
+    // Scepter/mace
+    ctx.fillStyle = '#DAA520';
+    ctx.fillRect(-8, 10, 4, 30);
+    ctx.fillStyle = '#FFD700';
+    ctx.fillRect(-10, 6, 8, 8);
+    ctx.fillRect(-12, 8, 12, 4);
+  }
+
+  ctx.restore();
+  ctx.globalAlpha = 1;
+
+  // Health bar
+  const barW = 60;
+  const barH = 6;
+  const barX = boss.x - camera.x + boss.w / 2 - barW / 2;
+  const barY = boss.y - 16;
+  ctx.fillStyle = '#333';
+  ctx.fillRect(barX, barY, barW, barH);
+  ctx.fillStyle = boss.hp > boss.maxHP / 3 ? '#C41230' : '#ff0000';
+  ctx.fillRect(barX, barY, barW * (boss.hp / boss.maxHP), barH);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(barX, barY, barW, barH);
+
+  // Boss name above health bar
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(boss.name, boss.x - camera.x + boss.w / 2, barY - 4);
+  ctx.textAlign = 'left';
+}
+
+function drawBossProjectile(p) {
+  const x = p.x - camera.x;
+  const y = p.y;
+  const spin = frameCount * 0.15;
+
+  ctx.save();
+  ctx.translate(x + 6, y + 6);
+  ctx.rotate(spin);
+  ctx.translate(-6, -6);
+
+  if (p.type === 1) {
+    // Paper/report
+    ctx.fillStyle = '#f5f5dc';
+    ctx.fillRect(0, 0, 12, 12);
+    ctx.fillStyle = '#333';
+    ctx.fillRect(2, 3, 8, 1);
+    ctx.fillRect(2, 6, 6, 1);
+    ctx.fillRect(2, 9, 7, 1);
+  } else if (p.type === 2) {
+    // Book
+    ctx.fillStyle = '#2980b9';
+    ctx.fillRect(0, 0, 12, 12);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(2, 2, 8, 8);
+    ctx.fillStyle = '#333';
+    ctx.fillRect(3, 4, 6, 1);
+    ctx.fillRect(3, 7, 4, 1);
+  } else if (p.type === 3) {
+    // Diploma scroll
+    ctx.fillStyle = '#FFD700';
+    ctx.fillRect(0, 2, 12, 8);
+    ctx.fillStyle = '#C41230';
+    ctx.fillRect(0, 0, 12, 3);
+    ctx.fillRect(0, 9, 12, 3);
+  }
+
+  ctx.restore();
+}
+
+// ============================================================
+// DRAWING — ENEMIES & COLLECTIBLES
+// ============================================================
 function drawEnemy(e) {
   if (!e.alive) return;
   const x = e.x - camera.x;
@@ -521,70 +915,73 @@ function drawEnemy(e) {
   const wobble = Math.sin(e.animTimer * 0.1) * 2;
 
   if (e.type === 'exam') {
-    // Exam paper enemy
     ctx.fillStyle = '#f5f5dc';
     ctx.fillRect(x + 2, y + 2 + wobble, 24, 26);
     ctx.fillStyle = '#333';
     ctx.fillRect(x + 5, y + 6 + wobble, 18, 2);
     ctx.fillRect(x + 5, y + 11 + wobble, 14, 2);
     ctx.fillRect(x + 5, y + 16 + wobble, 16, 2);
-    // Angry eyes
     ctx.fillStyle = '#C41230';
     ctx.fillRect(x + 7, y + 21 + wobble, 4, 3);
     ctx.fillRect(x + 17, y + 21 + wobble, 4, 3);
-    // F grade
     ctx.fillStyle = '#C41230';
     ctx.font = 'bold 10px monospace';
     ctx.fillText('F', x + 12, y + 8 + wobble);
   } else {
-    // Bug enemy
     ctx.fillStyle = '#2e7d32';
     ctx.fillRect(x + 4, y + 6 + wobble, 20, 18);
     ctx.fillStyle = '#1b5e20';
     ctx.fillRect(x + 6, y + 8 + wobble, 16, 14);
-    // Legs
     ctx.fillStyle = '#2e7d32';
     const legOff = Math.sin(e.animTimer * 0.15) * 2;
     ctx.fillRect(x + 1, y + 10 + legOff, 4, 2);
     ctx.fillRect(x + 23, y + 10 - legOff, 4, 2);
     ctx.fillRect(x + 1, y + 18 - legOff, 4, 2);
     ctx.fillRect(x + 23, y + 18 + legOff, 4, 2);
-    // Eyes
     ctx.fillStyle = '#ff0';
     ctx.fillRect(x + 8, y + 4 + wobble, 4, 4);
     ctx.fillRect(x + 16, y + 4 + wobble, 4, 4);
     ctx.fillStyle = '#000';
     ctx.fillRect(x + 9, y + 5 + wobble, 2, 2);
     ctx.fillRect(x + 17, y + 5 + wobble, 2, 2);
-    // Antennae
     ctx.fillStyle = '#2e7d32';
     ctx.fillRect(x + 9, y + 1, 2, 5);
     ctx.fillRect(x + 17, y + 1, 2, 5);
   }
 }
 
-// Draw collectible
 function drawCollectible(c) {
   if (c.collected) return;
   const x = c.x - camera.x;
   const y = c.y + Math.sin(c.bobOffset) * 3;
   const sparkle = Math.sin(frameCount * 0.1) * 0.3 + 0.7;
 
-  // Diploma scroll
   ctx.fillStyle = `rgba(255, 215, 0, ${sparkle})`;
   ctx.fillRect(x + 4, y + 2, 16, 20);
   ctx.fillStyle = '#DAA520';
   ctx.fillRect(x + 2, y + 1, 20, 3);
   ctx.fillRect(x + 2, y + 20, 20, 3);
-  // Ribbon
   ctx.fillStyle = '#C41230';
   ctx.fillRect(x + 10, y + 7, 4, 8);
   ctx.fillRect(x + 8, y + 9, 8, 4);
 }
 
-// Draw background — Doha, Qatar skyline
-function drawBackground() {
-  // Desert night sky gradient
+// ============================================================
+// DRAWING — BACKGROUNDS (4 locations)
+// ============================================================
+
+function drawStars() {
+  ctx.fillStyle = '#fff';
+  for (let i = 0; i < 50; i++) {
+    const sx = (i * 137 + 50) % W;
+    const sy = (i * 97 + 20) % (H * 0.35);
+    const twinkle = Math.sin(frameCount * 0.03 + i) > 0.5 ? 2 : 1;
+    ctx.fillRect(sx, sy, twinkle, twinkle);
+  }
+}
+
+// LEVEL 1: Doha, Qatar
+function drawBG_Doha() {
   const grad = ctx.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, '#0a0a2e');
   grad.addColorStop(0.4, '#1a1a4e');
@@ -593,14 +990,7 @@ function drawBackground() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
-  // Stars
-  ctx.fillStyle = '#fff';
-  for (let i = 0; i < 50; i++) {
-    const sx = (i * 137 + 50) % W;
-    const sy = (i * 97 + 20) % (H * 0.35);
-    const twinkle = Math.sin(frameCount * 0.03 + i) > 0.5 ? 2 : 1;
-    ctx.fillRect(sx, sy, twinkle, twinkle);
-  }
+  drawStars();
 
   // Crescent moon
   ctx.fillStyle = '#FFD700';
@@ -615,10 +1005,9 @@ function drawBackground() {
   const parallax = camera.x * 0.15;
   const baseY = H - 60;
 
-  // --- Far layer: Doha skyline silhouettes ---
   ctx.fillStyle = '#1a1a3a';
 
-  // The Torch (Aspire Tower) — tall twisted tower
+  // Aspire Tower
   const torchX = 80 - parallax % (W + 300);
   ctx.fillRect(torchX + 8, baseY - 180, 14, 180);
   ctx.fillRect(torchX, baseY - 200, 30, 25);
@@ -628,7 +1017,7 @@ function drawBackground() {
   ctx.lineTo(torchX + 30, baseY - 200);
   ctx.fill();
 
-  // West Bay towers cluster
+  // West Bay towers
   const wb = 200 - parallax % (W + 300);
   ctx.fillRect(wb, baseY - 140, 25, 140);
   ctx.fillRect(wb + 30, baseY - 170, 20, 170);
@@ -636,18 +1025,17 @@ function drawBackground() {
   ctx.fillRect(wb + 82, baseY - 155, 18, 155);
   ctx.fillRect(wb + 105, baseY - 120, 24, 120);
 
-  // Museum of Islamic Art — geometric cube shape
+  // Museum of Islamic Art
   const miaX = 420 - parallax % (W + 300);
   ctx.fillRect(miaX, baseY - 70, 60, 70);
   ctx.fillRect(miaX + 5, baseY - 90, 50, 25);
   ctx.fillRect(miaX + 12, baseY - 105, 36, 20);
   ctx.fillRect(miaX + 20, baseY - 115, 20, 15);
 
-  // Katara Towers — two arched towers
+  // Katara Towers
   const katX = 600 - parallax % (W + 300);
   ctx.fillRect(katX, baseY - 150, 16, 150);
   ctx.fillRect(katX + 40, baseY - 150, 16, 150);
-  // Arch connecting them
   ctx.beginPath();
   ctx.moveTo(katX + 8, baseY - 150);
   ctx.quadraticCurveTo(katX + 28, baseY - 190, katX + 48, baseY - 150);
@@ -664,16 +1052,14 @@ function drawBackground() {
   ctx.lineTo(alb + 25, baseY - 160);
   ctx.fill();
 
-  // More West Bay towers (repeating for scroll)
   const wb2 = 920 - parallax % (W + 300);
   ctx.fillRect(wb2, baseY - 130, 20, 130);
   ctx.fillRect(wb2 + 25, baseY - 150, 22, 150);
   ctx.fillRect(wb2 + 52, baseY - 110, 18, 110);
 
-  // --- Desert sand at bottom ---
+  // Desert sand
   ctx.fillStyle = '#c2956b';
   ctx.fillRect(0, baseY, W, 60);
-  // Sand dune curves
   ctx.fillStyle = '#b8885f';
   for (let i = 0; i < W; i += 120) {
     ctx.beginPath();
@@ -685,10 +1071,334 @@ function drawBackground() {
   }
 }
 
-// Draw tiles
+// LEVEL 2: Kigali, Rwanda
+function drawBG_Rwanda() {
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#0d1b2a');
+  grad.addColorStop(0.3, '#1b2a4a');
+  grad.addColorStop(0.6, '#2d4a2d');
+  grad.addColorStop(1, '#1a3a1a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  drawStars();
+
+  // Full moon
+  ctx.fillStyle = '#eee';
+  ctx.beginPath();
+  ctx.arc(150, 70, 22, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ddd';
+  ctx.beginPath();
+  ctx.arc(145, 65, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(158, 75, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  const parallax = camera.x * 0.12;
+  const baseY = H - 60;
+
+  // Rolling green hills (far)
+  ctx.fillStyle = '#1a4a1a';
+  for (let i = -200; i < W + 200; i += 180) {
+    const hx = i - parallax * 0.5 % (W + 400);
+    ctx.beginPath();
+    ctx.moveTo(hx - 100, baseY);
+    ctx.quadraticCurveTo(hx, baseY - 100 - Math.sin(i * 0.01) * 30, hx + 100, baseY);
+    ctx.fill();
+  }
+
+  // Rolling green hills (near)
+  ctx.fillStyle = '#2d5a2d';
+  for (let i = -100; i < W + 200; i += 150) {
+    const hx = i - parallax % (W + 300);
+    ctx.beginPath();
+    ctx.moveTo(hx - 80, baseY);
+    ctx.quadraticCurveTo(hx, baseY - 70 - Math.sin(i * 0.02) * 20, hx + 80, baseY);
+    ctx.fill();
+  }
+
+  // Lake Kivu (water strip)
+  ctx.fillStyle = '#1a3a5a';
+  ctx.fillRect(0, baseY - 15, W, 20);
+  // Water shimmer
+  ctx.fillStyle = '#2a5a8a';
+  for (let i = 0; i < W; i += 30) {
+    const shimmer = Math.sin(frameCount * 0.05 + i * 0.1) * 2;
+    ctx.fillRect(i, baseY - 10 + shimmer, 15, 2);
+  }
+
+  // Tropical trees silhouettes
+  ctx.fillStyle = '#0d2d0d';
+  const trees = [60, 200, 380, 520, 700];
+  for (const tx of trees) {
+    const treeX = tx - parallax * 0.3 % (W + 200);
+    // Trunk
+    ctx.fillRect(treeX + 8, baseY - 50, 6, 50);
+    // Canopy (round)
+    ctx.beginPath();
+    ctx.arc(treeX + 11, baseY - 55, 18, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Gorilla silhouette (far background)
+  ctx.fillStyle = '#0a1a0a';
+  const gx = 450 - parallax * 0.2 % (W + 200);
+  // Body
+  ctx.beginPath();
+  ctx.arc(gx, baseY - 25, 14, 0, Math.PI * 2);
+  ctx.fill();
+  // Head
+  ctx.beginPath();
+  ctx.arc(gx - 4, baseY - 40, 9, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Ground
+  ctx.fillStyle = '#2d4a1a';
+  ctx.fillRect(0, baseY, W, 60);
+  ctx.fillStyle = '#3a5a2a';
+  for (let i = 0; i < W; i += 100) {
+    ctx.beginPath();
+    ctx.moveTo(i, baseY + 5);
+    ctx.quadraticCurveTo(i + 50, baseY - 3, i + 100, baseY + 5);
+    ctx.lineTo(i + 100, baseY + 60);
+    ctx.lineTo(i, baseY + 60);
+    ctx.fill();
+  }
+}
+
+// LEVEL 3: Silicon Valley
+function drawBG_SiliconValley() {
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#1a0a2e');
+  grad.addColorStop(0.3, '#2a1a4e');
+  grad.addColorStop(0.6, '#3a2a5e');
+  grad.addColorStop(1, '#c4a04a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  drawStars();
+
+  const parallax = camera.x * 0.15;
+  const baseY = H - 60;
+
+  // Golden California hills (far)
+  ctx.fillStyle = '#8a7a3a';
+  for (let i = -200; i < W + 200; i += 200) {
+    const hx = i - parallax * 0.3 % (W + 400);
+    ctx.beginPath();
+    ctx.moveTo(hx - 120, baseY);
+    ctx.quadraticCurveTo(hx, baseY - 80, hx + 120, baseY);
+    ctx.fill();
+  }
+
+  // Tech campus buildings
+  ctx.fillStyle = '#2a2a4a';
+  const buildings = [
+    { x: 50, w: 80, h: 90 },   // Apple-like HQ
+    { x: 180, w: 60, h: 110 },
+    { x: 300, w: 100, h: 70 },  // Wide data center
+    { x: 460, w: 50, h: 130 },  // Tall tower
+    { x: 560, w: 70, h: 85 },
+    { x: 680, w: 90, h: 100 },
+    { x: 820, w: 55, h: 120 },
+  ];
+  for (const b of buildings) {
+    const bx = b.x - parallax % (W + 300);
+    ctx.fillRect(bx, baseY - b.h, b.w, b.h);
+    // Windows (lit up)
+    ctx.fillStyle = '#4a6aaa';
+    for (let wy = baseY - b.h + 8; wy < baseY - 5; wy += 12) {
+      for (let wx = bx + 5; wx < bx + b.w - 5; wx += 10) {
+        if (Math.sin(wx * 3 + wy * 7) > 0) {
+          ctx.fillRect(wx, wy, 6, 6);
+        }
+      }
+    }
+    ctx.fillStyle = '#2a2a4a';
+  }
+
+  // Palm trees
+  ctx.fillStyle = '#3a2a1a';
+  const palms = [120, 350, 580, 750];
+  for (const px of palms) {
+    const palmX = px - parallax * 0.4 % (W + 200);
+    // Trunk
+    ctx.fillRect(palmX, baseY - 60, 5, 60);
+    // Fronds
+    ctx.fillStyle = '#2a5a2a';
+    ctx.beginPath();
+    ctx.moveTo(palmX + 2, baseY - 60);
+    ctx.lineTo(palmX - 20, baseY - 45);
+    ctx.lineTo(palmX + 2, baseY - 55);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(palmX + 2, baseY - 60);
+    ctx.lineTo(palmX + 25, baseY - 45);
+    ctx.lineTo(palmX + 2, baseY - 55);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(palmX + 2, baseY - 60);
+    ctx.lineTo(palmX - 15, baseY - 55);
+    ctx.lineTo(palmX + 2, baseY - 58);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(palmX + 2, baseY - 60);
+    ctx.lineTo(palmX + 20, baseY - 55);
+    ctx.lineTo(palmX + 2, baseY - 58);
+    ctx.fill();
+    ctx.fillStyle = '#3a2a1a';
+  }
+
+  // Highway at bottom
+  ctx.fillStyle = '#3a3a3a';
+  ctx.fillRect(0, baseY, W, 60);
+  ctx.fillStyle = '#555';
+  ctx.fillRect(0, baseY + 25, W, 3);
+  // Dashed center line
+  ctx.fillStyle = '#FFD700';
+  for (let i = 0; i < W; i += 30) {
+    ctx.fillRect(i, baseY + 26, 15, 1);
+  }
+}
+
+// LEVEL 4: Pittsburgh, PA
+function drawBG_Pittsburgh() {
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#0a0a1a');
+  grad.addColorStop(0.3, '#1a1a3a');
+  grad.addColorStop(0.6, '#2a2a4a');
+  grad.addColorStop(1, '#3a3a5a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  drawStars();
+
+  const parallax = camera.x * 0.15;
+  const baseY = H - 60;
+
+  // Steel city skyline
+  ctx.fillStyle = '#1a1a2a';
+
+  // Cathedral of Learning (tall gothic tower)
+  const catX = 100 - parallax % (W + 300);
+  ctx.fillRect(catX + 10, baseY - 220, 20, 220);
+  ctx.fillRect(catX + 5, baseY - 200, 30, 10);
+  ctx.fillRect(catX, baseY - 100, 40, 100);
+  // Gothic top
+  ctx.beginPath();
+  ctx.moveTo(catX + 10, baseY - 220);
+  ctx.lineTo(catX + 20, baseY - 250);
+  ctx.lineTo(catX + 30, baseY - 220);
+  ctx.fill();
+  // Windows
+  ctx.fillStyle = '#3a4a6a';
+  for (let wy = baseY - 180; wy < baseY - 10; wy += 15) {
+    ctx.fillRect(catX + 15, wy, 10, 8);
+  }
+  ctx.fillStyle = '#1a1a2a';
+
+  // PPG Place (glass castle)
+  const ppgX = 280 - parallax % (W + 300);
+  ctx.fillRect(ppgX, baseY - 150, 30, 150);
+  ctx.fillRect(ppgX + 35, baseY - 120, 25, 120);
+  ctx.fillRect(ppgX + 65, baseY - 140, 28, 140);
+  // Spire tops
+  ctx.beginPath();
+  ctx.moveTo(ppgX + 5, baseY - 150);
+  ctx.lineTo(ppgX + 15, baseY - 175);
+  ctx.lineTo(ppgX + 25, baseY - 150);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(ppgX + 70, baseY - 140);
+  ctx.lineTo(ppgX + 79, baseY - 165);
+  ctx.lineTo(ppgX + 88, baseY - 140);
+  ctx.fill();
+
+  // Steel Bridge (Fort Duquesne style)
+  const brX = 480 - parallax % (W + 300);
+  ctx.fillStyle = '#DAA520';
+  // Bridge deck
+  ctx.fillRect(brX, baseY - 30, 140, 6);
+  // Towers
+  ctx.fillRect(brX + 10, baseY - 70, 8, 45);
+  ctx.fillRect(brX + 122, baseY - 70, 8, 45);
+  // Cables
+  ctx.strokeStyle = '#DAA520';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(brX + 14, baseY - 70);
+  ctx.quadraticCurveTo(brX + 70, baseY - 20, brX + 126, baseY - 70);
+  ctx.stroke();
+  ctx.fillStyle = '#1a1a2a';
+
+  // More buildings (US Steel Tower, etc.)
+  const usX = 680 - parallax % (W + 300);
+  ctx.fillRect(usX, baseY - 180, 35, 180);
+  ctx.fillRect(usX + 40, baseY - 130, 25, 130);
+  ctx.fillRect(usX + 70, baseY - 150, 30, 150);
+  // Antenna
+  ctx.fillRect(usX + 15, baseY - 200, 4, 25);
+
+  // Incline silhouette
+  const incX = 850 - parallax % (W + 300);
+  ctx.fillStyle = '#2a2a3a';
+  ctx.beginPath();
+  ctx.moveTo(incX, baseY);
+  ctx.lineTo(incX + 40, baseY - 80);
+  ctx.lineTo(incX + 50, baseY - 80);
+  ctx.lineTo(incX + 10, baseY);
+  ctx.fill();
+  // Incline car
+  ctx.fillStyle = '#C41230';
+  ctx.fillRect(incX + 18, baseY - 45, 12, 8);
+
+  // Three rivers (water at bottom)
+  ctx.fillStyle = '#1a2a4a';
+  ctx.fillRect(0, baseY, W, 60);
+  // Water reflections
+  ctx.fillStyle = '#2a3a5a';
+  for (let i = 0; i < W; i += 25) {
+    const shimmer = Math.sin(frameCount * 0.04 + i * 0.08) * 2;
+    ctx.fillRect(i, baseY + 8 + shimmer, 12, 2);
+  }
+  // Bridge reflection glow
+  ctx.fillStyle = 'rgba(218, 165, 32, 0.15)';
+  ctx.fillRect(brX - 10, baseY, 160, 30);
+}
+
+function drawBackground() {
+  switch (currentLevel) {
+    case 0: drawBG_Doha(); break;
+    case 1: drawBG_Rwanda(); break;
+    case 2: drawBG_SiliconValley(); break;
+    case 3: drawBG_Pittsburgh(); break;
+  }
+}
+
+// ============================================================
+// DRAWING — TILES, GOAL, HUD
+// ============================================================
 function drawTiles() {
   const startCol = Math.floor(camera.x / T);
   const endCol = Math.min(startCol + Math.ceil(W / T) + 2, LEVEL_W);
+
+  // Tile colors per level
+  const groundColors = [
+    { main: '#5a5a6a', top: '#3a6b35', edge: '#4a4a5a', stroke: '#3a3a4a' }, // Doha — gray stone
+    { main: '#5a3a2a', top: '#2d6b2d', edge: '#4a3020', stroke: '#3a2a1a' }, // Rwanda — red earth
+    { main: '#4a4a5a', top: '#3a5a3a', edge: '#3a3a4a', stroke: '#2a2a3a' }, // SV — modern gray
+    { main: '#5a5a5a', top: '#4a5a3a', edge: '#4a4a4a', stroke: '#3a3a3a' }, // Pittsburgh — steel gray
+  ];
+  const brickColors = [
+    { main: '#6b4c3b', inner: '#7d5a47' },
+    { main: '#5a3a1a', inner: '#6b4a2a' },
+    { main: '#3a3a5a', inner: '#4a4a6a' },
+    { main: '#5a4a3a', inner: '#6b5a4a' },
+  ];
+  const gc = groundColors[currentLevel];
+  const bc = brickColors[currentLevel];
 
   for (let r = 0; r < LEVEL_H; r++) {
     for (let c = startCol; c < endCol; c++) {
@@ -698,28 +1408,23 @@ function drawTiles() {
       const y = r * T;
 
       if (tile === 1) {
-        // Ground
-        ctx.fillStyle = '#5a5a6a';
+        ctx.fillStyle = gc.main;
         ctx.fillRect(x, y, T, T);
-        ctx.fillStyle = '#4a4a5a';
+        ctx.fillStyle = gc.edge;
         ctx.fillRect(x, y, T, 2);
-        // Brick lines
-        ctx.strokeStyle = '#3a3a4a';
+        ctx.strokeStyle = gc.stroke;
         ctx.lineWidth = 1;
         ctx.strokeRect(x + 0.5, y + 0.5, T - 1, T - 1);
         if (r > 0 && level[r - 1][c] !== 1) {
-          // Top edge — grass/moss
-          ctx.fillStyle = '#3a6b35';
+          ctx.fillStyle = gc.top;
           ctx.fillRect(x, y, T, 3);
         }
       } else if (tile === 2) {
-        // Platform / building block
-        ctx.fillStyle = '#6b4c3b';
+        ctx.fillStyle = bc.main;
         ctx.fillRect(x, y, T, T);
-        ctx.fillStyle = '#7d5a47';
+        ctx.fillStyle = bc.inner;
         ctx.fillRect(x + 1, y + 1, T - 2, T - 2);
-        // Brick pattern
-        ctx.fillStyle = '#6b4c3b';
+        ctx.fillStyle = bc.main;
         ctx.fillRect(x + T / 2, y, 1, T);
         ctx.fillRect(x, y + T / 2, T, 1);
       }
@@ -727,32 +1432,25 @@ function drawTiles() {
   }
 }
 
-// Draw goal flag
 function drawGoal() {
+  if (gameState === 'bossFight' || gameState === 'bossDefeated') return;
   const x = goalX - camera.x;
-  // Pole
   ctx.fillStyle = '#ccc';
   ctx.fillRect(x + 14, H - 14 * T + 80, 4, 14 * T - 80);
-  // Flag
   ctx.fillStyle = '#C41230';
   ctx.fillRect(x + 18, H - 14 * T + 82, 30, 20);
-  // CMU text on flag
   ctx.fillStyle = '#FFD700';
   ctx.font = 'bold 10px monospace';
   ctx.fillText('CMU', x + 21, H - 14 * T + 97);
-  // Graduation cap on top
   ctx.fillStyle = '#222';
   ctx.fillRect(x + 6, H - 14 * T + 72, 20, 4);
   ctx.fillRect(x + 10, H - 14 * T + 68, 12, 6);
-  // Tassel
   ctx.fillStyle = '#FFD700';
   ctx.fillRect(x + 6, H - 14 * T + 72, 2, 10);
   ctx.fillRect(x + 3, H - 14 * T + 80, 6, 3);
 }
 
-// Draw HUD
 function drawHUD() {
-  // Score
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.fillRect(0, 0, W, 36);
 
@@ -760,11 +1458,15 @@ function drawHUD() {
   ctx.font = 'bold 14px monospace';
   ctx.fillText('SCORE: ' + String(score).padStart(6, '0'), 15, 24);
 
-  // Title
+  // Level name
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 16px monospace';
+  ctx.font = 'bold 14px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('SCOTTY RUN', W / 2, 24);
+  const info = levelInfo[currentLevel];
+  ctx.fillText('Level ' + (currentLevel + 1) + ': ' + info.name, W / 2, 14);
+  ctx.fillStyle = '#888';
+  ctx.font = '10px monospace';
+  ctx.fillText(info.subtitle, W / 2, 28);
   ctx.textAlign = 'left';
 
   // Lives
@@ -773,7 +1475,6 @@ function drawHUD() {
   }
 }
 
-// Draw particles
 function drawParticles() {
   for (const p of particles) {
     const alpha = p.life / 50;
@@ -785,44 +1486,97 @@ function drawParticles() {
 }
 
 // ============================================================
-// TITLE SCREEN
+// SCREENS
 // ============================================================
 function drawTitle() {
-  drawBackground();
+  currentLevel = 0;
+  drawBG_Doha();
 
-  // Big title
   ctx.fillStyle = '#C41230';
-  ctx.font = 'bold 48px monospace';
+  ctx.font = 'bold 44px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('SCOTTY RUN', W / 2, H / 2 - 60);
+  ctx.fillText('SCOTTY RUN', W / 2, H / 2 - 70);
 
-  // Subtitle
   ctx.fillStyle = '#FFD700';
   ctx.font = 'bold 16px monospace';
-  ctx.fillText('A CMU Campus Adventure', W / 2, H / 2 - 25);
+  ctx.fillText('A CMU Global Adventure', W / 2, H / 2 - 35);
 
-  // Scotty
-  drawScotty(W / 2 - 12, H / 2, 1, Math.floor(frameCount / 15) % 2, 0);
+  ctx.fillStyle = '#fff';
+  ctx.font = '13px monospace';
+  ctx.fillText('Doha \u2022 Kigali \u2022 Silicon Valley \u2022 Pittsburgh', W / 2, H / 2 - 10);
 
-  // Instructions
+  drawScotty(W / 2 - 12, H / 2 + 10, 1, Math.floor(frameCount / 15) % 2, 0);
+
   ctx.fillStyle = '#fff';
   ctx.font = '14px monospace';
   const blink = Math.sin(frameCount * 0.06) > 0;
-  if (blink) {
-    ctx.fillText('Press SPACE to Start', W / 2, H / 2 + 70);
-  }
+  if (blink) ctx.fillText('Press SPACE to Start', W / 2, H / 2 + 70);
 
   ctx.fillStyle = '#888';
   ctx.font = '12px monospace';
-  ctx.fillText('← → Move   SPACE Jump (x2 for Double Jump!)', W / 2, H / 2 + 100);
-  ctx.fillText('Stomp enemies! Collect diplomas!', W / 2, H / 2 + 120);
+  ctx.fillText('\u2190 \u2192 Move   SPACE Jump (x2 for Double Jump!)', W / 2, H / 2 + 100);
+  ctx.fillText('Stomp enemies & bosses! Collect diplomas!', W / 2, H / 2 + 120);
 
   ctx.textAlign = 'left';
 }
 
-// ============================================================
-// GAME OVER / VICTORY SCREENS
-// ============================================================
+function drawLevelIntro() {
+  drawBackground();
+
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0, 0, W, H);
+
+  const info = levelInfo[currentLevel];
+  ctx.textAlign = 'center';
+
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 36px monospace';
+  ctx.fillText('Level ' + (currentLevel + 1), W / 2, H / 2 - 50);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 24px monospace';
+  ctx.fillText(info.name, W / 2, H / 2 - 10);
+
+  ctx.fillStyle = '#C41230';
+  ctx.font = '16px monospace';
+  ctx.fillText(info.subtitle, W / 2, H / 2 + 20);
+
+  if (info.boss) {
+    ctx.fillStyle = '#ff6666';
+    ctx.font = 'bold 14px monospace';
+    ctx.fillText('BOSS: ' + info.boss, W / 2, H / 2 + 55);
+    ctx.fillStyle = '#aaa';
+    ctx.font = '12px monospace';
+    ctx.fillText(info.bossTitle, W / 2, H / 2 + 75);
+  }
+
+  ctx.textAlign = 'left';
+}
+
+function drawBossDefeated() {
+  drawBackground();
+  drawTiles();
+  drawParticles();
+  drawHUD();
+
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 32px monospace';
+  ctx.fillText(boss ? boss.name + ' DEFEATED!' : 'BOSS DEFEATED!', W / 2, H / 2 - 20);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '16px monospace';
+  if (currentLevel < 3) {
+    ctx.fillText('Advancing to ' + levelInfo[currentLevel + 1].name + '...', W / 2, H / 2 + 20);
+  } else {
+    ctx.fillText('You conquered all CMU campuses!', W / 2, H / 2 + 20);
+  }
+  ctx.textAlign = 'left';
+}
+
 function drawGameOver() {
   ctx.fillStyle = 'rgba(0,0,0,0.7)';
   ctx.fillRect(0, 0, W, H);
@@ -836,10 +1590,14 @@ function drawGameOver() {
   ctx.font = 'bold 18px monospace';
   ctx.fillText('Score: ' + score, W / 2, H / 2 + 15);
 
+  ctx.fillStyle = '#888';
+  ctx.font = '14px monospace';
+  ctx.fillText('Reached: ' + levelInfo[currentLevel].name, W / 2, H / 2 + 40);
+
   ctx.fillStyle = '#fff';
   ctx.font = '14px monospace';
   const blink = Math.sin(frameCount * 0.06) > 0;
-  if (blink) ctx.fillText('Press SPACE to Retry', W / 2, H / 2 + 55);
+  if (blink) ctx.fillText('Press SPACE to Retry', W / 2, H / 2 + 70);
   ctx.textAlign = 'left';
 }
 
@@ -851,23 +1609,27 @@ function drawVictory() {
 
   // Graduation cap
   ctx.fillStyle = '#222';
-  ctx.fillRect(W / 2 - 30, H / 2 - 110, 60, 8);
-  ctx.fillRect(W / 2 - 20, H / 2 - 120, 40, 14);
+  ctx.fillRect(W / 2 - 30, H / 2 - 120, 60, 8);
+  ctx.fillRect(W / 2 - 20, H / 2 - 130, 40, 14);
   ctx.fillStyle = '#FFD700';
-  ctx.fillRect(W / 2 - 30, H / 2 - 110, 2, 15);
-  ctx.fillRect(W / 2 - 34, H / 2 - 97, 10, 4);
+  ctx.fillRect(W / 2 - 30, H / 2 - 120, 2, 15);
+  ctx.fillRect(W / 2 - 34, H / 2 - 107, 10, 4);
 
   ctx.fillStyle = '#FFD700';
-  ctx.font = 'bold 40px monospace';
-  ctx.fillText('GRADUATED!', W / 2, H / 2 - 30);
+  ctx.font = 'bold 36px monospace';
+  ctx.fillText('GRADUATED!', W / 2, H / 2 - 40);
 
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 20px monospace';
-  ctx.fillText('Final Score: ' + score, W / 2, H / 2 + 15);
+  ctx.fillText('Final Score: ' + score, W / 2, H / 2);
 
   ctx.fillStyle = '#C41230';
   ctx.font = '14px monospace';
-  ctx.fillText('Scotty conquered CMU campus!', W / 2, H / 2 + 50);
+  ctx.fillText('Scotty conquered all CMU campuses!', W / 2, H / 2 + 30);
+
+  ctx.fillStyle = '#888';
+  ctx.font = '12px monospace';
+  ctx.fillText('Doha \u2713  Kigali \u2713  Silicon Valley \u2713  Pittsburgh \u2713', W / 2, H / 2 + 55);
 
   ctx.fillStyle = '#fff';
   ctx.font = '14px monospace';
@@ -875,7 +1637,7 @@ function drawVictory() {
   if (blink) ctx.fillText('Press SPACE to Play Again', W / 2, H / 2 + 85);
   ctx.textAlign = 'left';
 
-  // Confetti particles
+  // Confetti
   if (frameCount % 5 === 0) {
     const colors = ['#C41230', '#FFD700', '#fff', '#00e676'];
     spawnParticles(Math.random() * W + camera.x, 0, colors[Math.floor(Math.random() * colors.length)], 2);
@@ -889,14 +1651,8 @@ function resetGame() {
   score = 0;
   lives = 3;
   camera.x = 0;
-  // Restore level data (re-parse since we clear entity tiles)
-  for (let r = 0; r < LEVEL_H; r++) {
-    for (let c = 0; c < LEVEL_W; c++) {
-      level[r][c] = parseInt(levelData[r][c]);
-    }
-  }
-  initEntities();
-  resetPlayer();
+  currentLevel = 0;
+  startLevel(0);
 }
 
 function update() {
@@ -905,6 +1661,11 @@ function update() {
   if (gameState === 'title') {
     if (keys['Space']) {
       resetGame();
+      keys['Space'] = false;
+    }
+  } else if (gameState === 'levelIntro') {
+    levelIntroTimer--;
+    if (levelIntroTimer <= 0 || keys['Space']) {
       gameState = 'playing';
       keys['Space'] = false;
     }
@@ -914,6 +1675,20 @@ function update() {
     updateCollectibles();
     updateParticles();
     updateCamera();
+  } else if (gameState === 'bossFight') {
+    updatePlayer();
+    updateEnemies();
+    updateBoss();
+    updateBossProjectiles();
+    updateCollectibles();
+    updateParticles();
+    updateCamera();
+  } else if (gameState === 'bossDefeated') {
+    updateParticles();
+    levelIntroTimer--;
+    if (levelIntroTimer <= 0) {
+      advanceLevel();
+    }
   } else if (gameState === 'gameover' || gameState === 'victory') {
     updateParticles();
     if (keys['Space']) {
@@ -928,26 +1703,32 @@ function draw() {
 
   if (gameState === 'title') {
     drawTitle();
-  } else if (gameState === 'playing') {
+  } else if (gameState === 'levelIntro') {
+    drawLevelIntro();
+  } else if (gameState === 'playing' || gameState === 'bossFight') {
     drawBackground();
     drawTiles();
     drawGoal();
     for (const c of collectibles) drawCollectible(c);
     for (const e of enemies) drawEnemy(e);
+    if (gameState === 'bossFight') {
+      drawBoss();
+      for (const p of bossProjectiles) drawBossProjectile(p);
+    }
     drawScotty(player.x - camera.x, player.y, player.facing, player.animFrame, player.invincible);
     drawParticles();
     drawHUD();
+  } else if (gameState === 'bossDefeated') {
+    drawBossDefeated();
   } else if (gameState === 'gameover') {
     drawBackground();
     drawTiles();
-    drawGoal();
     drawParticles();
     drawHUD();
     drawGameOver();
   } else if (gameState === 'victory') {
     drawBackground();
     drawTiles();
-    drawGoal();
     drawParticles();
     drawHUD();
     drawVictory();
@@ -961,6 +1742,7 @@ function gameLoop() {
 }
 
 // Initialize and start
+loadLevel(0);
 initEntities();
 resetPlayer();
 gameLoop();
