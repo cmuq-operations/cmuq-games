@@ -149,7 +149,8 @@ let frameCount = 0;
 let levelIntroTimer = 0;
 let usedPassNoPass = [false, false, false, false]; // track P/NP per level
 let bossDeathCount = 0; // deaths during current boss fight
-let assistMode = false; // invincibility assist mode
+let gameMode = 0; // 0=Normal, 1=Assist (can't die), 2=Invincible (shield + float)
+let titleSelection = 0; // which mode is highlighted on title screen
 let screenShake = 0; // visual polish: shake frames remaining
 let screenShakeX = 0;
 let screenShakeY = 0;
@@ -158,7 +159,7 @@ let screenShakeY = 0;
 const keys = {};
 window.addEventListener('keydown', e => {
   keys[e.code] = true;
-  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyP', 'KeyN', 'KeyA'].includes(e.code)) {
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyP'].includes(e.code)) {
     e.preventDefault();
   }
 });
@@ -435,9 +436,16 @@ function updatePlayer() {
   }
   if (!keys['Space']) player.jumpPressed = false;
 
-  // Gravity
-  player.vy += GRAVITY;
-  if (player.vy > MAX_FALL) player.vy = MAX_FALL;
+  // Gravity — invincible mode: float (up/down controls)
+  if (gameMode === 2) {
+    if (keys['ArrowUp']) player.vy = -MOVE_SPEED;
+    else if (keys['ArrowDown']) player.vy = MOVE_SPEED;
+    else player.vy *= 0.8;
+    if (Math.abs(player.vy) < 0.1) player.vy = 0;
+  } else {
+    player.vy += GRAVITY;
+    if (player.vy > MAX_FALL) player.vy = MAX_FALL;
+  }
 
   // Move X
   player.x += player.vx;
@@ -478,9 +486,16 @@ function updatePlayer() {
 
   // Fall off screen
   if (player.y > LEVEL_H * T + 50) {
-    player.dead = true;
-    player.deadTimer = 30;
+    if (gameMode === 2) {
+      player.y = LEVEL_H * T - 50; // bounce back up
+      player.vy = -5;
+    } else {
+      player.dead = true;
+      player.deadTimer = 30;
+    }
   }
+  // Keep invincible player on screen vertically
+  if (gameMode === 2 && player.y < 0) { player.y = 0; player.vy = 0; }
 
   // Invincibility countdown
   if (player.invincible > 0) player.invincible--;
@@ -576,6 +591,15 @@ function updateEnemies() {
 
     if (player.dead || player.invincible > 0) continue;
     if (rectsOverlap(player, e)) {
+      if (gameMode === 2) {
+        // Invincible shield destroys enemies on contact
+        e.alive = false;
+        e.squish = 5;
+        score += 200;
+        playSound('stomp');
+        spawnParticles(e.x + e.w / 2, e.y + e.h / 2, '#4af', 8);
+        continue;
+      }
       if (player.vy > 0 && player.y + player.h - 16 < e.y + e.h / 2) {
         e.alive = false;
         e.squish = 5; // squish animation frames
@@ -592,13 +616,14 @@ function updateEnemies() {
 }
 
 function playerHit() {
+  if (gameMode === 2) return; // Invincible mode: no effect at all
   player.invincible = 90;
   player.vy = -8;
   player.vx = player.facing * -5;
   screenShake = 6;
   playSound('hit');
-  if (assistMode) {
-    // Knockback and flash but no damage
+  if (gameMode === 1) {
+    // Assist: knockback and flash but no damage
     spawnParticles(player.x + player.w / 2, player.y + player.h / 2, '#ffffff', 5);
     return;
   }
@@ -640,28 +665,51 @@ function updateBoss() {
   }
 
   // Collision with player
-  if (!player.dead && player.invincible <= 0 && rectsOverlap(player, boss)) {
-    if (player.vy > 0 && player.y + player.h - 16 < boss.y + boss.h / 2) {
-      // Stomp boss
-      boss.hp--;
-      boss.hitFlash = 15;
-      player.vy = -12;
-      score += 500;
-      playSound('bossstomp');
-      screenShake = 8;
-      spawnParticles(boss.x + boss.w / 2, boss.y + 10, '#FFD700', 10);
-      if (boss.hp <= 0) {
-        boss.alive = false;
-        score += 2000;
-        playSound('bossdefeat');
-        screenShake = 15;
-        spawnParticles(boss.x + boss.w / 2, boss.y + boss.h / 2, '#C41230', 20);
-        spawnParticles(boss.x + boss.w / 2, boss.y + boss.h / 2, '#FFD700', 20);
-        gameState = 'bossDefeated';
-        levelIntroTimer = 180;
+  if (!player.dead && rectsOverlap(player, boss)) {
+    if (gameMode === 2) {
+      // Invincible mode: any contact damages boss (with cooldown via hitFlash)
+      if (boss.hitFlash <= 0) {
+        boss.hp--;
+        boss.hitFlash = 30;
+        player.vy = -6;
+        score += 500;
+        playSound('bossstomp');
+        screenShake = 8;
+        spawnParticles(boss.x + boss.w / 2, boss.y + 10, '#FFD700', 10);
+        if (boss.hp <= 0) {
+          boss.alive = false;
+          score += 2000;
+          playSound('bossdefeat');
+          screenShake = 15;
+          spawnParticles(boss.x + boss.w / 2, boss.y + boss.h / 2, '#C41230', 20);
+          spawnParticles(boss.x + boss.w / 2, boss.y + boss.h / 2, '#FFD700', 20);
+          gameState = 'bossDefeated';
+          levelIntroTimer = 180;
+        }
       }
-    } else {
-      playerHit();
+    } else if (player.invincible <= 0) {
+      if (player.vy > 0 && player.y + player.h - 16 < boss.y + boss.h / 2) {
+        // Stomp boss
+        boss.hp--;
+        boss.hitFlash = 15;
+        player.vy = -12;
+        score += 500;
+        playSound('bossstomp');
+        screenShake = 8;
+        spawnParticles(boss.x + boss.w / 2, boss.y + 10, '#FFD700', 10);
+        if (boss.hp <= 0) {
+          boss.alive = false;
+          score += 2000;
+          playSound('bossdefeat');
+          screenShake = 15;
+          spawnParticles(boss.x + boss.w / 2, boss.y + boss.h / 2, '#C41230', 20);
+          spawnParticles(boss.x + boss.w / 2, boss.y + boss.h / 2, '#FFD700', 20);
+          gameState = 'bossDefeated';
+          levelIntroTimer = 180;
+        }
+      } else {
+        playerHit();
+      }
     }
   }
 }
@@ -1997,42 +2045,67 @@ function drawTitle() {
 
   drawScotty(W / 2 - 24, H / 2 - 20, 1, Math.floor(frameCount / 15) % 2, 0);
 
-  // Mode selection
-  ctx.font = 'bold 26px monospace';
-  const blink = Math.sin(frameCount * 0.06) > 0;
+  // Mode selection — 3 boxes, arrow keys to choose
+  const modes = [
+    { name: 'Normal', desc: 'Full challenge', desc2: 'Earn letter grades', color: '#FFD700', bg: 'rgba(50,50,80,' },
+    { name: 'Assist', desc: 'Can\'t die, knockback', desc2: 'Max grade: C', color: '#4a9', bg: 'rgba(50,80,50,' },
+    { name: 'Invincible', desc: 'Shield + float', desc2: 'Just enjoy the ride!', color: '#88f', bg: 'rgba(50,50,100,' },
+  ];
+  const boxW = 230;
+  const boxH = 70;
+  const gap = 20;
+  const totalW = modes.length * boxW + (modes.length - 1) * gap;
+  const startX = W / 2 - totalW / 2;
+  const boxY = H / 2 + 45;
 
-  // Normal mode box
-  ctx.fillStyle = assistMode ? 'rgba(50,50,80,0.5)' : 'rgba(50,50,80,0.9)';
-  ctx.fillRect(W / 2 - 340, H / 2 + 50, 310, 60);
-  ctx.strokeStyle = assistMode ? '#555' : '#FFD700';
-  ctx.lineWidth = assistMode ? 1 : 3;
-  ctx.strokeRect(W / 2 - 340, H / 2 + 50, 310, 60);
-  ctx.fillStyle = assistMode ? '#888' : '#FFD700';
-  ctx.fillText('[N] Normal Mode', W / 2 - 185, H / 2 + 82);
-  ctx.font = '14px monospace';
-  ctx.fillText('Full challenge, earn letter grades', W / 2 - 185, H / 2 + 100);
+  for (let i = 0; i < modes.length; i++) {
+    const m = modes[i];
+    const bx = startX + i * (boxW + gap);
+    const sel = titleSelection === i;
 
-  // Assist mode box
-  ctx.font = 'bold 26px monospace';
-  ctx.fillStyle = assistMode ? 'rgba(50,80,50,0.9)' : 'rgba(50,50,80,0.5)';
-  ctx.fillRect(W / 2 + 30, H / 2 + 50, 310, 60);
-  ctx.strokeStyle = assistMode ? '#4a9' : '#555';
-  ctx.lineWidth = assistMode ? 3 : 1;
-  ctx.strokeRect(W / 2 + 30, H / 2 + 50, 310, 60);
-  ctx.fillStyle = assistMode ? '#4a9' : '#888';
-  ctx.fillText('[A] Assist Mode', W / 2 + 185, H / 2 + 82);
-  ctx.font = '14px monospace';
-  ctx.fillText('Can\'t die, max grade: C', W / 2 + 185, H / 2 + 100);
+    // Box background
+    ctx.fillStyle = m.bg + (sel ? '0.9)' : '0.4)');
+    ctx.fillRect(bx, boxY, boxW, boxH);
+
+    // Border
+    ctx.strokeStyle = sel ? m.color : '#555';
+    ctx.lineWidth = sel ? 3 : 1;
+    ctx.strokeRect(bx, boxY, boxW, boxH);
+
+    // Selection arrow
+    if (sel) {
+      ctx.fillStyle = m.color;
+      ctx.font = 'bold 20px monospace';
+      ctx.fillText('\u25B6', bx + 12, boxY + 30);
+    }
+
+    // Mode name
+    ctx.fillStyle = sel ? m.color : '#888';
+    ctx.font = 'bold 22px monospace';
+    ctx.fillText(m.name, bx + boxW / 2, boxY + 28);
+
+    // Description
+    ctx.fillStyle = sel ? '#ccc' : '#666';
+    ctx.font = '12px monospace';
+    ctx.fillText(m.desc, bx + boxW / 2, boxY + 47);
+    ctx.fillText(m.desc2, bx + boxW / 2, boxY + 62);
+  }
+
+  // Arrow hint
+  ctx.fillStyle = '#888';
+  ctx.font = '16px monospace';
+  ctx.fillText('\u2190 \u2192 Select Mode', W / 2, boxY + boxH + 25);
 
   // Start prompt
+  const blink = Math.sin(frameCount * 0.06) > 0;
   ctx.font = '24px monospace';
   ctx.fillStyle = '#fff';
-  if (blink) ctx.fillText('Press SPACE to Start', W / 2, H / 2 + 150);
+  if (blink) ctx.fillText('Press SPACE to Start', W / 2, boxY + boxH + 60);
 
   ctx.fillStyle = '#888';
-  ctx.font = '18px monospace';
-  ctx.fillText('\u2190 \u2192 Move   SPACE Jump (x2 for Double Jump!)', W / 2, H / 2 + 190);
-  ctx.fillText('Stomp enemies & bosses! Collect Scotty coins!', W / 2, H / 2 + 215);
+  ctx.font = '16px monospace';
+  ctx.fillText('Controls: \u2190 \u2192 Move   SPACE Jump (x2 Double Jump!)', W / 2, boxY + boxH + 90);
+  ctx.fillText('Stomp enemies & bosses! Collect Scotty coins!', W / 2, boxY + boxH + 112);
 
   ctx.textAlign = 'left';
 }
@@ -2171,9 +2244,13 @@ function calculateGrade() {
   const pct = score / Math.max(maxScore, 1);
 
   // Assist mode caps grade at C
-  if (assistMode) {
+  if (gameMode === 1) {
     if (pct >= 0.25) return { letter: 'C', label: 'Satisfactory (Assist Mode)', color: '#ccc' };
     return { letter: 'D', label: 'Academic Probation', color: '#ff6666' };
+  }
+  // Invincible mode caps grade at D
+  if (gameMode === 2) {
+    return { letter: 'D', label: 'Tourist Mode', color: '#88f' };
   }
 
   if (pct >= 0.9 && lives >= 4) return { letter: 'A+', label: 'Summa Cum Laude', color: '#FFD700' };
@@ -2279,10 +2356,11 @@ function update() {
   frameCount++;
 
   if (gameState === 'title') {
-    if (keys['KeyN']) { assistMode = false; keys['KeyN'] = false; }
-    if (keys['KeyA']) { assistMode = true; keys['KeyA'] = false; }
+    if (keys['ArrowLeft']) { titleSelection = Math.max(0, titleSelection - 1); keys['ArrowLeft'] = false; }
+    if (keys['ArrowRight']) { titleSelection = Math.min(2, titleSelection + 1); keys['ArrowRight'] = false; }
     if (keys['Space']) {
       initAudio();
+      gameMode = titleSelection;
       resetGame();
       keys['Space'] = false;
     }
@@ -2401,6 +2479,29 @@ function draw() {
       drawBoss();
       for (const p of bossProjectiles) drawBossProjectile(p);
     }
+    // Shield glow for invincible mode (behind player)
+    if (gameMode === 2) {
+      const sx = player.x - camera.x + player.w / 2;
+      const sy = player.y + player.h / 2;
+      const pulse = Math.sin(frameCount * 0.1) * 0.15 + 0.35;
+      // Outer glow
+      ctx.fillStyle = `rgba(100, 150, 255, ${pulse * 0.3})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 50, 0, Math.PI * 2);
+      ctx.fill();
+      // Inner shield
+      ctx.strokeStyle = `rgba(150, 200, 255, ${pulse + 0.3})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 38, 0, Math.PI * 2);
+      ctx.stroke();
+      // Shield shimmer
+      ctx.strokeStyle = `rgba(255, 255, 255, ${pulse * 0.5})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 42, -0.5 + frameCount * 0.05, 0.5 + frameCount * 0.05);
+      ctx.stroke();
+    }
     // Player — spin if dead
     if (player.dead) {
       ctx.save();
@@ -2416,12 +2517,18 @@ function draw() {
     }
     drawParticles();
     drawHUD();
-    // Assist mode indicator
-    if (assistMode) {
+    // Mode indicator
+    if (gameMode === 1) {
       ctx.fillStyle = 'rgba(74, 153, 100, 0.6)';
       ctx.font = 'bold 16px monospace';
       ctx.textAlign = 'right';
       ctx.fillText('ASSIST MODE', W - 20, H - 20);
+      ctx.textAlign = 'left';
+    } else if (gameMode === 2) {
+      ctx.fillStyle = 'rgba(100, 100, 255, 0.6)';
+      ctx.font = 'bold 16px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('INVINCIBLE', W - 20, H - 20);
       ctx.textAlign = 'left';
     }
   } else if (gameState === 'passNoPass') {
