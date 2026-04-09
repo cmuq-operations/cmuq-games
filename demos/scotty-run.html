@@ -249,105 +249,6 @@ function playSound(type) {
 }
 
 // ============================================================
-// MOBILE TOUCH CONTROLS
-// ============================================================
-const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-const touchState = { left: false, right: false, jump: false };
-
-if (isTouchDevice) {
-  canvas.addEventListener('touchstart', handleTouch, { passive: false });
-  canvas.addEventListener('touchmove', handleTouch, { passive: false });
-  canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
-  canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
-}
-
-function handleTouch(e) {
-  e.preventDefault();
-  initAudio();
-  touchState.left = false;
-  touchState.right = false;
-  touchState.jump = false;
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = W / rect.width;
-  const scaleY = H / rect.height;
-  for (const touch of e.touches) {
-    const tx = (touch.clientX - rect.left) * scaleX;
-    const ty = (touch.clientY - rect.top) * scaleY;
-    // Left button: bottom-left
-    if (tx < 200 && ty > H - 200) touchState.left = true;
-    // Right button: left side, further right
-    if (tx >= 200 && tx < 400 && ty > H - 200) touchState.right = true;
-    // Jump button: bottom-right
-    if (tx > W - 250 && ty > H - 250) touchState.jump = true;
-    // Any touch on title/gameover = space
-    if (gameState === 'title' || gameState === 'gameover' || gameState === 'victory' || gameState === 'levelIntro') {
-      keys['Space'] = true;
-    }
-  }
-  keys['ArrowLeft'] = touchState.left;
-  keys['ArrowRight'] = touchState.right;
-  if (touchState.jump && !keys['Space']) keys['Space'] = true;
-}
-
-function handleTouchEnd(e) {
-  e.preventDefault();
-  if (e.touches.length === 0) {
-    touchState.left = false;
-    touchState.right = false;
-    touchState.jump = false;
-    keys['ArrowLeft'] = false;
-    keys['ArrowRight'] = false;
-    keys['Space'] = false;
-  } else {
-    handleTouch(e);
-  }
-}
-
-function drawTouchControls() {
-  if (!isTouchDevice) return;
-  ctx.globalAlpha = 0.3;
-
-  // Left arrow
-  ctx.fillStyle = touchState.left ? '#FFD700' : '#fff';
-  ctx.beginPath();
-  ctx.arc(120, H - 120, 60, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#000';
-  ctx.beginPath();
-  ctx.moveTo(140, H - 145);
-  ctx.lineTo(100, H - 120);
-  ctx.lineTo(140, H - 95);
-  ctx.closePath();
-  ctx.fill();
-
-  // Right arrow
-  ctx.fillStyle = touchState.right ? '#FFD700' : '#fff';
-  ctx.beginPath();
-  ctx.arc(300, H - 120, 60, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#000';
-  ctx.beginPath();
-  ctx.moveTo(280, H - 145);
-  ctx.lineTo(320, H - 120);
-  ctx.lineTo(280, H - 95);
-  ctx.closePath();
-  ctx.fill();
-
-  // Jump button
-  ctx.fillStyle = touchState.jump ? '#FFD700' : '#C41230';
-  ctx.beginPath();
-  ctx.arc(W - 140, H - 140, 70, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 36px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('JUMP', W - 140, H - 130);
-  ctx.textAlign = 'left';
-
-  ctx.globalAlpha = 1;
-}
-
-// ============================================================
 // PLAYER
 // ============================================================
 const player = {
@@ -2489,7 +2390,6 @@ function draw() {
     ctx.font = '22px monospace';
     ctx.fillText(boss ? boss.title : '', W / 2, H / 2 + 45);
     ctx.textAlign = 'left';
-    drawTouchControls();
   } else if (gameState === 'playing' || gameState === 'bossFight') {
     drawBackground();
     drawTiles();
@@ -2524,7 +2424,6 @@ function draw() {
       ctx.fillText('ASSIST MODE', W - 20, H - 20);
       ctx.textAlign = 'left';
     }
-    drawTouchControls();
   } else if (gameState === 'passNoPass') {
     drawPassNoPass();
   } else if (gameState === 'bossDefeated') {
