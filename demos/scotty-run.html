@@ -916,7 +916,7 @@ function drawScotty(x, y, facing, animFrame, invincible) {
   ctx.fillRect(-4, 2, 3, 4);
   ctx.fillRect(-5, 0, 2, 3);
 
-  // === TARTAN SCARF — prominent CMU tartan ===
+  // === TARTAN SCARF — CMU tartan (red and green) ===
   // Main scarf band (wider, more visible)
   ctx.fillStyle = '#C41230'; // CMU Red
   ctx.fillRect(10, 10, 14, 4);
@@ -924,19 +924,19 @@ function drawScotty(x, y, facing, animFrame, invincible) {
   ctx.fillStyle = '#C41230';
   ctx.fillRect(8, 12, 4, 5);
   ctx.fillRect(7, 15, 3, 3);
-  // Gold tartan stripes
-  ctx.fillStyle = '#FFD700';
+  // Green tartan stripes
+  ctx.fillStyle = '#2d6b2d';
   ctx.fillRect(12, 10, 2, 4);
   ctx.fillRect(17, 10, 2, 4);
   ctx.fillRect(22, 10, 2, 4);
-  // Horizontal gold stripe
+  // Horizontal green stripe
   ctx.fillRect(10, 12, 14, 1);
   // White tartan accent
   ctx.fillStyle = '#fff';
   ctx.fillRect(14, 11, 1, 2);
   ctx.fillRect(19, 11, 1, 2);
   // Hanging scarf pattern
-  ctx.fillStyle = '#FFD700';
+  ctx.fillStyle = '#2d6b2d';
   ctx.fillRect(8, 14, 2, 1);
   ctx.fillRect(8, 16, 1, 1);
 
@@ -975,8 +975,9 @@ function drawScottyHead(x, y, size) {
   // Scarf hint
   ctx.fillStyle = '#C41230';
   ctx.fillRect(2, 14, 14, 3);
-  ctx.fillStyle = '#FFD700';
+  ctx.fillStyle = '#2d6b2d';
   ctx.fillRect(5, 14, 2, 3);
+  ctx.fillStyle = '#2d6b2d';
   ctx.fillRect(10, 14, 2, 3);
   ctx.restore();
 }
