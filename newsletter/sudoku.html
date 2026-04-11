@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sudoku Mini | CMU-Q Weekly Games</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a2e;
+    --text-dim: #6b7280;
+    --border: #d3d6da;
+    --highlight: #a7d8ff;
+    --highlight-current: #ffda6e;
+    --correct: #6aaa64;
+    --wrong: #ff6b6b;
+    --red: #C41230;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .container { max-width: 500px; margin: 0 auto; }
+
+  header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding-top: 20px;
+  }
+
+  header .back {
+    display: inline-block;
+    margin-bottom: 12px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  header .back:hover { color: var(--red); }
+  header h1 { font-size: 1.5rem; font-weight: 800; }
+
+  .timer-bar {
+    text-align: center;
+    margin-bottom: 16px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  /* Grid */
+  .grid-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+    position: relative;
+  }
+
+  #mobile-input {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    font-size: 16px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 2px solid var(--text);
+    border-radius: 2px;
+  }
+
+  .grid-cell {
+    width: 52px;
+    height: 52px;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.1s;
+  }
+
+  .grid-cell.given {
+    font-weight: 800;
+    color: var(--text);
+    cursor: default;
+  }
+
+  .grid-cell.editable { color: #3b6ecc; }
+  .grid-cell.highlighted { background: var(--highlight); }
+  .grid-cell.current { background: var(--highlight-current); }
+
+  .grid-cell.error { background: #ffe0e0; }
+  .grid-cell.checked-correct { color: var(--correct); }
+  .grid-cell.checked-wrong { color: var(--wrong); }
+
+  /* Box borders: thick borders at box boundaries */
+  .grid-cell.box-right { border-right: 2px solid var(--text); }
+  .grid-cell.box-bottom { border-bottom: 2px solid var(--text); }
+
+  /* Digit pad */
+  .digit-pad {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .digit-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    border: none;
+    background: #e8eaed;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 1.2rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .digit-btn:active { transform: scale(0.93); }
+  .digit-btn.erase { font-size: 1rem; background: #f3e8ff; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .btn {
+    padding: 8px 18px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { background: #f0f0f0; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+
+  .modal h2 { font-size: 1.3rem; margin-bottom: 4px; }
+  .modal .time { font-size: 2rem; font-weight: 800; color: var(--red); margin: 12px 0; }
+  .modal p { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 16px; }
+  .modal .btn.primary { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+
+  @media (max-width: 480px) {
+    .grid-cell { width: 44px; height: 44px; font-size: 1.2rem; }
+    .digit-btn { width: 42px; height: 42px; font-size: 1.1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <a href="index.html" class="back">&larr; All Games</a>
+    <h1>Sudoku Mini</h1>
+  </header>
+
+  <div class="timer-bar" id="timer">0:00</div>
+
+  <div class="grid-wrapper">
+    <div class="grid" id="grid"></div>
+    <input type="text" id="mobile-input" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  </div>
+
+  <div class="digit-pad" id="digit-pad">
+    <button class="digit-btn" onclick="placeDigit(1)">1</button>
+    <button class="digit-btn" onclick="placeDigit(2)">2</button>
+    <button class="digit-btn" onclick="placeDigit(3)">3</button>
+    <button class="digit-btn" onclick="placeDigit(4)">4</button>
+    <button class="digit-btn" onclick="placeDigit(5)">5</button>
+    <button class="digit-btn" onclick="placeDigit(6)">6</button>
+    <button class="digit-btn erase" onclick="eraseDigit()">&times;</button>
+  </div>
+
+  <div class="controls">
+    <button class="btn" onclick="checkPuzzle()">Check</button>
+    <button class="btn" onclick="revealPuzzle()">Reveal</button>
+    <button class="btn" onclick="clearPuzzle()">Clear</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>Puzzle Complete!</h2>
+    <div class="time" id="final-time"></div>
+    <p>Great job solving this week's Sudoku Mini.</p>
+    <button class="btn primary" onclick="shareTime()">Share Time</button>
+    <button class="btn" onclick="document.getElementById('modal').classList.remove('active')" style="margin-left:4px">Close</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   WEEKLY PUZZLE CONFIG — Edit this section each week
+
+   solution: the complete 6x6 solved grid (digits 1-6)
+   given: array of [row, col] pairs for pre-filled cells
+   ============================================================ */
+const PUZZLE = {
+  date: '2026-04-11',
+  size: 6,
+  boxRows: 2,
+  boxCols: 3,
+  solution: [
+    [1,2,3,4,5,6],
+    [4,5,6,1,2,3],
+    [2,3,1,5,6,4],
+    [5,6,4,2,3,1],
+    [3,1,2,6,4,5],
+    [6,4,5,3,1,2],
+  ],
+  given: [
+    [0,0],[0,3],[0,5],
+    [1,1],[1,4],
+    [2,2],[2,5],
+    [3,0],[3,3],
+    [4,1],[4,4],
+    [5,0],[5,2],[5,5],
+  ]
+};
+/* ============================================================ */
+
+const SIZE = PUZZLE.size;
+const BOX_R = PUZZLE.boxRows;
+const BOX_C = PUZZLE.boxCols;
+
+let playerGrid = [];
+let givenSet = new Set();
+let selectedCell = null;
+let timerStart = Date.now();
+let timerInterval = null;
+let completed = false;
+
+function init() {
+  playerGrid = [];
+  givenSet = new Set();
+
+  for (let r = 0; r < SIZE; r++) {
+    playerGrid[r] = [];
+    for (let c = 0; c < SIZE; c++) {
+      playerGrid[r][c] = 0;
+    }
+  }
+
+  for (const [r, c] of PUZZLE.given) {
+    playerGrid[r][c] = PUZZLE.solution[r][c];
+    givenSet.add(r + ',' + c);
+  }
+
+  // Select first non-given cell
+  selectedCell = null;
+  for (let r = 0; r < SIZE && !selectedCell; r++) {
+    for (let c = 0; c < SIZE && !selectedCell; c++) {
+      if (!givenSet.has(r + ',' + c)) selectedCell = { row: r, col: c };
+    }
+  }
+
+  completed = false;
+  timerStart = Date.now();
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(updateTimer, 1000);
+
+  render();
+}
+
+function updateTimer() {
+  if (completed) return;
+  const elapsed = Math.floor((Date.now() - timerStart) / 1000);
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  document.getElementById('timer').textContent = m + ':' + String(s).padStart(2, '0');
+}
+
+function focusMobileInput() {
+  const inp = document.getElementById('mobile-input');
+  inp.value = '';
+  inp.focus();
+}
+
+function render() {
+  const gridEl = document.getElementById('grid');
+  gridEl.innerHTML = '';
+
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell';
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+
+      const isGiven = givenSet.has(r + ',' + c);
+      const isCurrent = selectedCell && selectedCell.row === r && selectedCell.col === c;
+      const isHighlighted = selectedCell && (
+        selectedCell.row === r || selectedCell.col === c ||
+        (Math.floor(r / BOX_R) === Math.floor(selectedCell.row / BOX_R) &&
+         Math.floor(c / BOX_C) === Math.floor(selectedCell.col / BOX_C))
+      );
+
+      if (isGiven) cell.classList.add('given');
+      else cell.classList.add('editable');
+
+      if (isCurrent) cell.classList.add('current');
+      else if (isHighlighted) cell.classList.add('highlighted');
+
+      // Box borders
+      if ((c + 1) % BOX_C === 0 && c < SIZE - 1) cell.classList.add('box-right');
+      if ((r + 1) % BOX_R === 0 && r < SIZE - 1) cell.classList.add('box-bottom');
+
+      if (playerGrid[r][c] !== 0) {
+        cell.textContent = playerGrid[r][c];
+      }
+
+      cell.onclick = () => {
+        if (!isGiven) {
+          selectedCell = { row: r, col: c };
+          render();
+          focusMobileInput();
+        }
+      };
+
+      gridEl.appendChild(cell);
+    }
+  }
+}
+
+function placeDigit(d) {
+  if (completed || !selectedCell) return;
+  const { row, col } = selectedCell;
+  if (givenSet.has(row + ',' + col)) return;
+  playerGrid[row][col] = d;
+  render();
+  checkCompletion();
+}
+
+function eraseDigit() {
+  if (completed || !selectedCell) return;
+  const { row, col } = selectedCell;
+  if (givenSet.has(row + ',' + col)) return;
+  playerGrid[row][col] = 0;
+  render();
+}
+
+function handleKeyInput(key) {
+  if (completed || !selectedCell) return;
+  const { row, col } = selectedCell;
+
+  if (/^[1-6]$/.test(key)) {
+    placeDigit(parseInt(key));
+  } else if (key === 'Backspace' || key === 'Delete') {
+    eraseDigit();
+  } else if (key === 'ArrowRight') {
+    if (col < SIZE - 1) { selectedCell = { row, col: col + 1 }; render(); }
+  } else if (key === 'ArrowLeft') {
+    if (col > 0) { selectedCell = { row, col: col - 1 }; render(); }
+  } else if (key === 'ArrowDown') {
+    if (row < SIZE - 1) { selectedCell = { row: row + 1, col }; render(); }
+  } else if (key === 'ArrowUp') {
+    if (row > 0) { selectedCell = { row: row - 1, col }; render(); }
+  }
+}
+
+function checkCompletion() {
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (playerGrid[r][c] !== PUZZLE.solution[r][c]) return;
+    }
+  }
+  completed = true;
+  clearInterval(timerInterval);
+  setTimeout(() => {
+    document.getElementById('final-time').textContent =
+      document.getElementById('timer').textContent;
+    document.getElementById('modal').classList.add('active');
+  }, 400);
+}
+
+function checkPuzzle() {
+  const cells = document.querySelectorAll('.grid-cell.editable');
+  cells.forEach(cell => {
+    const r = parseInt(cell.dataset.row);
+    const c = parseInt(cell.dataset.col);
+    if (playerGrid[r][c] === 0) return;
+
+    cell.classList.remove('checked-correct', 'checked-wrong');
+    if (playerGrid[r][c] === PUZZLE.solution[r][c]) {
+      cell.classList.add('checked-correct');
+    } else {
+      cell.classList.add('checked-wrong');
+    }
+
+    setTimeout(() => {
+      cell.classList.remove('checked-correct', 'checked-wrong');
+    }, 2000);
+  });
+}
+
+function revealPuzzle() {
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      playerGrid[r][c] = PUZZLE.solution[r][c];
+    }
+  }
+  completed = true;
+  clearInterval(timerInterval);
+  render();
+}
+
+function clearPuzzle() {
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (!givenSet.has(r + ',' + c)) {
+        playerGrid[r][c] = 0;
+      }
+    }
+  }
+  render();
+}
+
+function shareTime() {
+  const time = document.getElementById('timer').textContent;
+  const text = 'CMU-Q Sudoku Mini ' + PUZZLE.date + '\nTime: ' + time;
+  navigator.clipboard.writeText(text).then(() => {
+    document.getElementById('modal').classList.remove('active');
+  });
+}
+
+// Desktop keyboard
+document.addEventListener('keydown', e => {
+  if (e.target === document.getElementById('mobile-input')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace'].includes(e.key)) {
+    e.preventDefault();
+  }
+  handleKeyInput(e.key);
+});
+
+// Mobile keyboard
+const mobileInput = document.getElementById('mobile-input');
+mobileInput.addEventListener('input', e => {
+  const val = e.data;
+  if (val && /^[1-6]$/.test(val)) {
+    handleKeyInput(val);
+  }
+  mobileInput.value = '';
+});
+mobileInput.addEventListener('keydown', e => {
+  if (['Backspace', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+    e.preventDefault();
+    handleKeyInput(e.key);
+  }
+});
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spelling Bee | CMU-Q Weekly Games</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a2e;
+    --text-dim: #6b7280;
+    --border: #e5e7eb;
+    --red: #C41230;
+    --gold: #f7c948;
+    --gold-light: #fef3c7;
+    --hex-bg: #e8eaed;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .container { max-width: 500px; margin: 0 auto; }
+
+  header {
+    text-align: center;
+    margin-bottom: 16px;
+    padding-top: 20px;
+  }
+
+  header .back {
+    display: inline-block;
+    margin-bottom: 12px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  header .back:hover { color: var(--red); }
+  header h1 { font-size: 1.5rem; font-weight: 800; }
+
+  /* Rank bar */
+  .rank-section {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .rank-label {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .rank-bar-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .rank-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .rank-fill {
+    height: 100%;
+    background: var(--gold);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  .score-display {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    min-width: 36px;
+    text-align: right;
+  }
+
+  /* Message */
+  .message-area {
+    text-align: center;
+    min-height: 28px;
+    margin-bottom: 8px;
+  }
+
+  .message {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    animation: fadeUp 0.3s ease;
+  }
+
+  .message.error { background: #fee2e2; color: #b91c1c; }
+  .message.success { background: #dcfce7; color: #166534; }
+  .message.pangram { background: var(--gold-light); color: #92400e; font-weight: 800; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Input display */
+  .input-display {
+    text-align: center;
+    min-height: 42px;
+    margin-bottom: 12px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .input-display .center-char { color: var(--gold); }
+
+  .input-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.3em;
+    background: var(--text);
+    vertical-align: text-bottom;
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  /* Honeycomb */
+  .honeycomb {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .hex-row {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+  }
+
+  .hex {
+    width: 62px;
+    height: 62px;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    background: var(--hex-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    font-weight: 800;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.1s;
+    text-transform: uppercase;
+  }
+
+  .hex:active { transform: scale(0.92); }
+  .hex.center { background: var(--gold); }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    border-radius: 24px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn:hover { background: #f0f0f0; }
+  .btn.primary { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+  .btn.primary:hover { background: #2a2a4e; }
+
+  /* Found words */
+  .found-section {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+
+  .found-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+
+  .found-header h3 {
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .found-header .toggle {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .found-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .found-list.collapsed { display: none; }
+
+  .found-word {
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: #f3f4f6;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  .found-word.pangram {
+    background: var(--gold-light);
+    font-weight: 800;
+  }
+
+  @media (max-width: 480px) {
+    .hex { width: 54px; height: 54px; font-size: 1.1rem; }
+    .input-display { font-size: 1.3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <a href="index.html" class="back">&larr; All Games</a>
+    <h1>Spelling Bee</h1>
+  </header>
+
+  <div class="rank-section">
+    <div class="rank-label" id="rank-label">Beginner</div>
+    <div class="rank-bar-wrapper">
+      <div class="rank-bar">
+        <div class="rank-fill" id="rank-fill" style="width: 0%"></div>
+      </div>
+      <div class="score-display" id="score-display">0</div>
+    </div>
+  </div>
+
+  <div class="message-area" id="message-area"></div>
+
+  <div class="input-display" id="input-display">
+    <span class="input-cursor"></span>
+  </div>
+
+  <div class="honeycomb" id="honeycomb"></div>
+
+  <div class="controls">
+    <button class="btn" onclick="deleteLetter()">Delete</button>
+    <button class="btn" onclick="shuffleOuter()">Shuffle</button>
+    <button class="btn primary" onclick="submitWord()">Enter</button>
+  </div>
+
+  <div class="found-section">
+    <div class="found-header" onclick="toggleFoundList()">
+      <h3 id="found-count">You have found 0 words</h3>
+      <span class="toggle" id="found-toggle">Show</span>
+    </div>
+    <div class="found-list collapsed" id="found-list"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   WEEKLY PUZZLE CONFIG — Edit this section each week
+
+   centerLetter: the required letter (must be in every word)
+   outerLetters: array of 6 surrounding letters
+   words: all valid words with pangram flag
+   maxScore: pre-calculated sum of all word scores
+   ============================================================ */
+const PUZZLE = {
+  date: '2026-04-11',
+  centerLetter: 'A',
+  outerLetters: ['R', 'T', 'N', 'G', 'I', 'E'],
+  words: [
+    // 4-letter words (1 pt each)
+    { word: 'ANTE', isPangram: false },
+    { word: 'ANTI', isPangram: false },
+    { word: 'AREA', isPangram: false },
+    { word: 'ARIA', isPangram: false },
+    { word: 'EARN', isPangram: false },
+    { word: 'GAIT', isPangram: false },
+    { word: 'GATE', isPangram: false },
+    { word: 'GEAR', isPangram: false },
+    { word: 'NEAR', isPangram: false },
+    { word: 'NEAT', isPangram: false },
+    { word: 'RAGE', isPangram: false },
+    { word: 'RAIN', isPangram: false },
+    { word: 'RANG', isPangram: false },
+    { word: 'RANT', isPangram: false },
+    { word: 'RATE', isPangram: false },
+    { word: 'REIN', isPangram: false },
+    { word: 'TANG', isPangram: false },
+    { word: 'TARE', isPangram: false },
+    { word: 'TEAR', isPangram: false },
+    { word: 'TIER', isPangram: false },
+    { word: 'TIRE', isPangram: false },
+    // 5-letter words (5 pts each)
+    { word: 'AGAIN', isPangram: false },
+    { word: 'AGATE', isPangram: false },
+    { word: 'AGENT', isPangram: false },
+    { word: 'ANGER', isPangram: false },
+    { word: 'ARENA', isPangram: false },
+    { word: 'GIANT', isPangram: false },
+    { word: 'GRAIN', isPangram: false },
+    { word: 'GRANT', isPangram: false },
+    { word: 'GRATE', isPangram: false },
+    { word: 'GREAT', isPangram: false },
+    { word: 'INERT', isPangram: false },
+    { word: 'IRATE', isPangram: false },
+    { word: 'RANGE', isPangram: false },
+    { word: 'REIGN', isPangram: false },
+    { word: 'TIARA', isPangram: false },
+    { word: 'TIGER', isPangram: false },
+    { word: 'TRAIN', isPangram: false },
+    { word: 'TRAIT', isPangram: false },
+    // 6-letter words (6 pts each)
+    { word: 'AIRING', isPangram: false },
+    { word: 'ATTAIN', isPangram: false },
+    { word: 'EATING', isPangram: false },
+    { word: 'GARNET', isPangram: false },
+    { word: 'RATING', isPangram: false },
+    { word: 'RETAIN', isPangram: false },
+    { word: 'RETINA', isPangram: false },
+    // 7-letter words (7 pts each, +7 for pangrams)
+    { word: 'GRANITE', isPangram: true },
+    { word: 'INGRATE', isPangram: true },
+    { word: 'TANGIER', isPangram: true },
+    { word: 'TEARING', isPangram: true },
+    { word: 'GRATING', isPangram: false },
+    { word: 'ITERATE', isPangram: false },
+    { word: 'NARRATE', isPangram: false },
+    // 8-letter words (8 pts each)
+    { word: 'IRRIGATE', isPangram: false },
+  ],
+  maxScore: 238,
+};
+/* ============================================================ */
+
+const RANKS = [
+  { name: 'Beginner', pct: 0 },
+  { name: 'Good Start', pct: 0.05 },
+  { name: 'Moving Up', pct: 0.10 },
+  { name: 'Good', pct: 0.20 },
+  { name: 'Solid', pct: 0.30 },
+  { name: 'Nice', pct: 0.40 },
+  { name: 'Great', pct: 0.50 },
+  { name: 'Amazing', pct: 0.60 },
+  { name: 'Genius', pct: 0.70 },
+  { name: 'Queen Bee', pct: 1.0 },
+];
+
+const allLetters = new Set([PUZZLE.centerLetter, ...PUZZLE.outerLetters]);
+const wordMap = {};
+PUZZLE.words.forEach(w => { wordMap[w.word.toUpperCase()] = w; });
+
+// Filter out words that don't meet minimum length
+const validWords = PUZZLE.words.filter(w => w.word.length >= 4);
+
+let currentInput = '';
+let foundWords = [];
+let score = 0;
+let outerOrder = [...PUZZLE.outerLetters];
+let listExpanded = false;
+
+function scoreWord(word) {
+  if (word.length === 4) return 1;
+  let pts = word.length;
+  if (wordMap[word] && wordMap[word].isPangram) pts += 7;
+  return pts;
+}
+
+function getRank(s) {
+  let rank = RANKS[0].name;
+  for (const r of RANKS) {
+    if (s >= r.pct * PUZZLE.maxScore) rank = r.name;
+  }
+  return rank;
+}
+
+function init() {
+  currentInput = '';
+  foundWords = [];
+  score = 0;
+  outerOrder = [...PUZZLE.outerLetters];
+  listExpanded = false;
+  renderHoneycomb();
+  renderInput();
+  renderRank();
+  renderFoundWords();
+}
+
+function renderHoneycomb() {
+  const hc = document.getElementById('honeycomb');
+  hc.innerHTML = '';
+
+  // Row 1: outerOrder[0], outerOrder[1]
+  const row1 = document.createElement('div');
+  row1.className = 'hex-row';
+  row1.appendChild(makeHex(outerOrder[0], false));
+  row1.appendChild(makeHex(outerOrder[1], false));
+  hc.appendChild(row1);
+
+  // Row 2: outerOrder[2], CENTER, outerOrder[3]
+  const row2 = document.createElement('div');
+  row2.className = 'hex-row';
+  row2.appendChild(makeHex(outerOrder[2], false));
+  row2.appendChild(makeHex(PUZZLE.centerLetter, true));
+  row2.appendChild(makeHex(outerOrder[3], false));
+  hc.appendChild(row2);
+
+  // Row 3: outerOrder[4], outerOrder[5]
+  const row3 = document.createElement('div');
+  row3.className = 'hex-row';
+  row3.appendChild(makeHex(outerOrder[4], false));
+  row3.appendChild(makeHex(outerOrder[5], false));
+  hc.appendChild(row3);
+}
+
+function makeHex(letter, isCenter) {
+  const el = document.createElement('div');
+  el.className = 'hex' + (isCenter ? ' center' : '');
+  el.textContent = letter;
+  el.onclick = () => addLetter(letter);
+  return el;
+}
+
+function addLetter(ch) {
+  currentInput += ch.toUpperCase();
+  renderInput();
+}
+
+function deleteLetter() {
+  if (currentInput.length === 0) return;
+  currentInput = currentInput.slice(0, -1);
+  renderInput();
+}
+
+function renderInput() {
+  const el = document.getElementById('input-display');
+  if (currentInput.length === 0) {
+    el.innerHTML = '<span class="input-cursor"></span>';
+    return;
+  }
+  let html = '';
+  for (const ch of currentInput) {
+    if (ch === PUZZLE.centerLetter) {
+      html += '<span class="center-char">' + ch + '</span>';
+    } else {
+      html += ch;
+    }
+  }
+  html += '<span class="input-cursor"></span>';
+  el.innerHTML = html;
+}
+
+function showMessage(msg, type) {
+  const area = document.getElementById('message-area');
+  area.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
+  setTimeout(() => { area.innerHTML = ''; }, 2000);
+}
+
+function submitWord() {
+  const word = currentInput.toUpperCase();
+  currentInput = '';
+  renderInput();
+
+  if (word.length < 4) {
+    showMessage('Too short', 'error');
+    return;
+  }
+
+  if (!word.includes(PUZZLE.centerLetter)) {
+    showMessage('Missing center letter', 'error');
+    return;
+  }
+
+  for (const ch of word) {
+    if (!allLetters.has(ch)) {
+      showMessage('Invalid letter: ' + ch, 'error');
+      return;
+    }
+  }
+
+  if (foundWords.includes(word)) {
+    showMessage('Already found', 'error');
+    return;
+  }
+
+  if (!wordMap[word]) {
+    showMessage('Not in word list', 'error');
+    return;
+  }
+
+  // Valid word!
+  foundWords.push(word);
+  const pts = scoreWord(word);
+  score += pts;
+
+  const isPangram = wordMap[word].isPangram;
+  if (isPangram) {
+    showMessage('Pangram! +' + pts, 'pangram');
+  } else {
+    showMessage('+' + pts, 'success');
+  }
+
+  renderRank();
+  renderFoundWords();
+}
+
+function renderRank() {
+  const rank = getRank(score);
+  document.getElementById('rank-label').textContent = rank;
+  document.getElementById('score-display').textContent = score;
+  const pct = PUZZLE.maxScore > 0 ? Math.min(100, (score / PUZZLE.maxScore) * 100) : 0;
+  document.getElementById('rank-fill').style.width = pct + '%';
+}
+
+function renderFoundWords() {
+  const countEl = document.getElementById('found-count');
+  countEl.textContent = 'You have found ' + foundWords.length + ' word' + (foundWords.length !== 1 ? 's' : '');
+
+  const listEl = document.getElementById('found-list');
+  listEl.innerHTML = '';
+  const sorted = [...foundWords].sort();
+  for (const w of sorted) {
+    const el = document.createElement('span');
+    el.className = 'found-word';
+    if (wordMap[w] && wordMap[w].isPangram) el.classList.add('pangram');
+    el.textContent = w;
+    listEl.appendChild(el);
+  }
+}
+
+function toggleFoundList() {
+  listExpanded = !listExpanded;
+  const listEl = document.getElementById('found-list');
+  const toggleEl = document.getElementById('found-toggle');
+  listEl.classList.toggle('collapsed', !listExpanded);
+  toggleEl.textContent = listExpanded ? 'Hide' : 'Show';
+}
+
+function shuffleOuter() {
+  for (let i = outerOrder.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [outerOrder[i], outerOrder[j]] = [outerOrder[j], outerOrder[i]];
+  }
+  renderHoneycomb();
+}
+
+// Keyboard support
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    submitWord();
+  } else if (e.key === 'Backspace') {
+    e.preventDefault();
+    deleteLetter();
+  } else if (/^[a-zA-Z]$/.test(e.key)) {
+    const ch = e.key.toUpperCase();
+    if (allLetters.has(ch)) {
+      addLetter(ch);
+    }
+  }
+});
+
+init();
+</script>
+</body>
+</html>
