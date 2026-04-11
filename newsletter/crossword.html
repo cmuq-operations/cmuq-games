@@ -667,7 +667,9 @@ function shareTime() {
   });
 }
 
+// Desktop keyboard: only handle when hidden input is NOT focused
 document.addEventListener('keydown', e => {
+  if (e.target === document.getElementById('mobile-input')) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace'].includes(e.key)) {
     e.preventDefault();
@@ -675,7 +677,7 @@ document.addEventListener('keydown', e => {
   handleKeyInput(e.key);
 });
 
-// Mobile keyboard support: capture input from hidden field
+// Mobile keyboard: capture input from hidden field
 const mobileInput = document.getElementById('mobile-input');
 mobileInput.addEventListener('input', e => {
   const val = e.data;
@@ -685,9 +687,9 @@ mobileInput.addEventListener('input', e => {
   mobileInput.value = '';
 });
 mobileInput.addEventListener('keydown', e => {
-  if (e.key === 'Backspace') {
+  if (['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace'].includes(e.key)) {
     e.preventDefault();
-    handleKeyInput('Backspace');
+    handleKeyInput(e.key);
   }
 });
 
