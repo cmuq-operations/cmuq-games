@@ -212,6 +212,17 @@
     border-color: #1a1a2e;
   }
 
+  /* Hidden input for mobile keyboard */
+  #mobile-input {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    font-size: 16px; /* prevents iOS zoom */
+  }
+
   @media (max-width: 480px) {
     .grid-cell { width: 48px; height: 48px; }
     .grid-cell .letter { font-size: 1.2rem; }
@@ -231,6 +242,7 @@
 
   <div class="grid-wrapper">
     <div class="grid" id="grid"></div>
+    <input type="text" id="mobile-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
   </div>
 
   <div class="controls">
@@ -458,6 +470,7 @@ function renderClues() {
         direction = dir;
         currentCell = { row: clue.row, col: clue.col };
         render();
+        focusMobileInput();
       };
       container.appendChild(el);
     }
@@ -484,6 +497,12 @@ function updateClueHighlight() {
   }
 }
 
+function focusMobileInput() {
+  const inp = document.getElementById('mobile-input');
+  inp.value = '';
+  inp.focus();
+}
+
 function handleCellClick(row, col) {
   if (PUZZLE.grid[row][col] === null) return;
 
@@ -498,6 +517,7 @@ function handleCellClick(row, col) {
     currentCell = { row, col };
   }
   render();
+  focusMobileInput();
 }
 
 function advanceCursor(forward) {
@@ -653,6 +673,22 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
   }
   handleKeyInput(e.key);
+});
+
+// Mobile keyboard support: capture input from hidden field
+const mobileInput = document.getElementById('mobile-input');
+mobileInput.addEventListener('input', e => {
+  const val = e.data;
+  if (val && /^[a-zA-Z]$/.test(val)) {
+    handleKeyInput(val);
+  }
+  mobileInput.value = '';
+});
+mobileInput.addEventListener('keydown', e => {
+  if (e.key === 'Backspace') {
+    e.preventDefault();
+    handleKeyInput('Backspace');
+  }
 });
 
 init();
