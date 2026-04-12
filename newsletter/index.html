@@ -59,6 +59,18 @@
     border-radius: 2px;
   }
 
+  .section-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    margin-top: 32px;
+  }
+
+  .section-label:first-of-type { margin-top: 0; }
+
   .games {
     display: flex;
     flex-direction: column;
@@ -101,6 +113,8 @@
   .game-icon.sudoku { background: #fef3c7; }
   .game-icon.mathler { background: #fce7f3; }
   .game-icon.spelling-bee { background: #fff7ed; }
+  .game-icon.trivia { background: #ecfdf5; }
+  .game-icon.personality { background: #fdf2f8; }
 
   .game-info h2 {
     font-size: 1.1rem;
@@ -151,6 +165,7 @@
     <div class="divider"></div>
   </header>
 
+  <p class="section-label">Games</p>
   <div class="games">
     <a href="connections.html" class="game-card">
       <div class="game-icon connections">🔗</div>
@@ -202,6 +217,27 @@
       <div class="game-info">
         <h2>Spelling Bee</h2>
         <p>Make as many words as you can from seven letters.</p>
+      </div>
+      <span class="arrow">&#8250;</span>
+    </a>
+  </div>
+
+  <p class="section-label">More Fun</p>
+  <div class="games">
+    <a href="trivia.html" class="game-card">
+      <div class="game-icon trivia">🧠</div>
+      <div class="game-info">
+        <h2>Weekly Trivia</h2>
+        <p>Ten questions on campus life, Qatar, tech, and pop culture.</p>
+      </div>
+      <span class="arrow">&#8250;</span>
+    </a>
+
+    <a href="personality.html" class="game-card">
+      <div class="game-icon personality">✨</div>
+      <div class="game-info">
+        <h2>Personality Quiz</h2>
+        <p>Answer a few questions and find out what type you are.</p>
       </div>
       <span class="arrow">&#8250;</span>
     </a>

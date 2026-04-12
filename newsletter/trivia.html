@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Trivia | CMU-Q Weekly Games</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a2e;
+    --text-dim: #6b7280;
+    --border: #e5e7eb;
+    --red: #C41230;
+    --green: #16a34a;
+    --green-light: #dcfce7;
+    --red-light: #fee2e2;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .container { max-width: 560px; margin: 0 auto; }
+
+  header {
+    text-align: center;
+    margin-bottom: 24px;
+    padding-top: 20px;
+  }
+
+  header .back {
+    display: inline-block;
+    margin-bottom: 12px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  header .back:hover { color: var(--red); }
+  header h1 { font-size: 1.5rem; font-weight: 800; }
+  header p { color: var(--text-dim); font-size: 0.85rem; margin-top: 4px; }
+
+  /* Progress */
+  .progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .progress-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--red);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  .progress-text {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    min-width: 40px;
+    text-align: right;
+  }
+
+  /* Question card */
+  .question-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .question-number {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--red);
+    margin-bottom: 8px;
+  }
+
+  .question-text {
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.45;
+    margin-bottom: 20px;
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+
+  .option:hover { border-color: #bbb; background: #f9f9f9; }
+
+  .option .letter {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+
+  .option.selected { border-color: var(--text); }
+  .option.selected .letter { background: var(--text); color: #fff; border-color: var(--text); }
+
+  .option.correct { border-color: var(--green); background: var(--green-light); }
+  .option.correct .letter { background: var(--green); color: #fff; border-color: var(--green); }
+
+  .option.wrong { border-color: #dc2626; background: var(--red-light); }
+  .option.wrong .letter { background: #dc2626; color: #fff; border-color: #dc2626; }
+
+  .option.disabled { pointer-events: none; opacity: 0.6; }
+  .option.correct.disabled, .option.wrong.disabled { opacity: 1; }
+
+  /* Explanation */
+  .explanation {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: var(--text-dim);
+    animation: fadeIn 0.3s ease;
+  }
+
+  /* Next button */
+  .next-btn {
+    display: none;
+    margin-top: 16px;
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: var(--text);
+    color: #fff;
+    font-family: var(--font);
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .next-btn:hover { background: #2a2a4e; }
+  .next-btn.visible { display: block; }
+
+  /* Results */
+  .results-card {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    text-align: center;
+    animation: fadeIn 0.4s ease;
+  }
+
+  .results-card.active { display: block; }
+
+  .results-card h2 { font-size: 1.3rem; margin-bottom: 4px; }
+
+  .score-big {
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--red);
+    margin: 16px 0 4px;
+  }
+
+  .score-label {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+  }
+
+  .score-message {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+
+  .results-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .btn {
+    padding: 10px 24px;
+    border-radius: 24px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { background: #f0f0f0; }
+  .btn.primary { background: var(--text); color: #fff; border-color: var(--text); }
+  .btn.primary:hover { background: #2a2a4e; }
+
+  @media (max-width: 480px) {
+    .question-card { padding: 20px; }
+    .option { padding: 12px 14px; font-size: 0.85rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <a href="index.html" class="back">&larr; All Games</a>
+    <h1>Weekly Trivia</h1>
+    <p>Test your knowledge — 10 questions</p>
+  </header>
+
+  <div class="progress">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+    </div>
+    <div class="progress-text" id="progress-text">0/10</div>
+  </div>
+
+  <div id="question-area"></div>
+
+  <div class="results-card" id="results">
+    <h2 id="results-title"></h2>
+    <div class="score-big" id="score-big"></div>
+    <div class="score-label" id="score-label"></div>
+    <div class="score-message" id="score-message"></div>
+    <div class="results-actions">
+      <button class="btn primary" onclick="shareResults()">Share Results</button>
+      <button class="btn" onclick="init()">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   WEEKLY PUZZLE CONFIG — Edit this section each week
+
+   Each question has:
+     q: the question text
+     options: array of 4 answer strings
+     answer: index of the correct option (0-3)
+     explanation: shown after answering (optional but recommended)
+   ============================================================ */
+const PUZZLE_DATE = '2026-04-11';
+const QUESTIONS = [
+  {
+    q: "What year was CMU-Q's campus in Education City established?",
+    options: ["2001", "2004", "2007", "2010"],
+    answer: 1,
+    explanation: "Carnegie Mellon University in Qatar opened in 2004, offering undergraduate programs in business and computer science."
+  },
+  {
+    q: "Which of these is NOT one of Qatar's bordering countries?",
+    options: ["Saudi Arabia", "Bahrain", "None — it only borders Saudi Arabia", "UAE"],
+    answer: 2,
+    explanation: "Qatar is a peninsula that shares its only land border with Saudi Arabia. Bahrain and the UAE are nearby but separated by water."
+  },
+  {
+    q: "What does 'Karak' refer to in the context of CMU-Q campus life?",
+    options: ["A study room", "A spiced tea", "A student club", "A grading system"],
+    answer: 1,
+    explanation: "Karak is a popular spiced tea in Qatar, made with cardamom, saffron, and evaporated milk. It's a campus staple."
+  },
+  {
+    q: "Which programming language was created by Guido van Rossum in 1991?",
+    options: ["Java", "C++", "Python", "Ruby"],
+    answer: 2,
+    explanation: "Python was first released in 1991 by Guido van Rossum, named after Monty Python's Flying Circus."
+  },
+  {
+    q: "What is the name of CMU's mascot?",
+    options: ["Tartan", "Scotty", "Bagpiper", "Andy"],
+    answer: 1,
+    explanation: "Scotty the Scottish Terrier has been CMU's mascot since the 1920s, representing the university's Scottish heritage."
+  },
+  {
+    q: "The FIFA World Cup 2022 final was held in which Qatar stadium?",
+    options: ["Al Bayt Stadium", "Khalifa International", "Lusail Stadium", "Education City Stadium"],
+    answer: 2,
+    explanation: "The 2022 FIFA World Cup final between Argentina and France was held at Lusail Stadium, with a capacity of 80,000."
+  },
+  {
+    q: "In computer science, what does 'RAM' stand for?",
+    options: ["Read Access Memory", "Random Access Memory", "Rapid Application Module", "Runtime Allocation Map"],
+    answer: 1,
+    explanation: "RAM stands for Random Access Memory — a type of volatile memory that allows data to be read and written in any order."
+  },
+  {
+    q: "Which building in Education City houses the Qatar National Library?",
+    options: ["A Rem Koolhaas design", "A Zaha Hadid design", "A Norman Foster design", "A Frank Gehry design"],
+    answer: 0,
+    explanation: "The Qatar National Library was designed by Rem Koolhaas / OMA and opened in 2018 in Education City."
+  },
+  {
+    q: "What is the traditional Qatari garment worn by men called?",
+    options: ["Kandura", "Thobe", "Bisht", "Abaya"],
+    answer: 1,
+    explanation: "The thobe (also spelled thawb) is the traditional ankle-length garment worn by men in Qatar and across the Gulf."
+  },
+  {
+    q: "Which CMU school is known by the acronym 'SCS'?",
+    options: ["School of Computer Science", "School of Creative Studies", "School of Communication Sciences", "School of Computational Statistics"],
+    answer: 0,
+    explanation: "SCS is the School of Computer Science, one of CMU's most renowned programs, consistently ranked among the top in the world."
+  },
+];
+/* ============================================================ */
+
+const LABELS = ['A', 'B', 'C', 'D'];
+let currentQ = 0;
+let correctCount = 0;
+let answered = false;
+
+function init() {
+  currentQ = 0;
+  correctCount = 0;
+  answered = false;
+  document.getElementById('results').classList.remove('active');
+  renderQuestion();
+  updateProgress();
+}
+
+function updateProgress() {
+  const pct = (currentQ / QUESTIONS.length) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = currentQ + '/' + QUESTIONS.length;
+}
+
+function renderQuestion() {
+  const area = document.getElementById('question-area');
+  const q = QUESTIONS[currentQ];
+
+  let html = '<div class="question-card">';
+  html += '<div class="question-number">Question ' + (currentQ + 1) + ' of ' + QUESTIONS.length + '</div>';
+  html += '<div class="question-text">' + q.q + '</div>';
+  html += '<div class="options">';
+
+  q.options.forEach((opt, i) => {
+    html += '<div class="option" onclick="selectAnswer(' + i + ')" id="opt-' + i + '">';
+    html += '<span class="letter">' + LABELS[i] + '</span>';
+    html += '<span>' + opt + '</span>';
+    html += '</div>';
+  });
+
+  html += '</div>';
+  html += '<div id="explanation"></div>';
+  html += '<button class="next-btn" id="next-btn" onclick="nextQuestion()">';
+  html += currentQ < QUESTIONS.length - 1 ? 'Next Question' : 'See Results';
+  html += '</button>';
+  html += '</div>';
+
+  area.innerHTML = html;
+  answered = false;
+}
+
+function selectAnswer(idx) {
+  if (answered) return;
+  answered = true;
+
+  const q = QUESTIONS[currentQ];
+  const isCorrect = idx === q.answer;
+  if (isCorrect) correctCount++;
+
+  // Mark all options
+  q.options.forEach((_, i) => {
+    const el = document.getElementById('opt-' + i);
+    if (i === q.answer) {
+      el.classList.add('correct');
+    } else if (i === idx && !isCorrect) {
+      el.classList.add('wrong');
+    } else {
+      el.classList.add('disabled');
+    }
+  });
+
+  // Show explanation
+  if (q.explanation) {
+    document.getElementById('explanation').innerHTML =
+      '<div class="explanation">' + (isCorrect ? 'Correct! ' : 'Not quite. ') + q.explanation + '</div>';
+  }
+
+  // Show next button
+  document.getElementById('next-btn').classList.add('visible');
+}
+
+function nextQuestion() {
+  currentQ++;
+  updateProgress();
+
+  if (currentQ >= QUESTIONS.length) {
+    showResults();
+  } else {
+    renderQuestion();
+  }
+}
+
+function showResults() {
+  document.getElementById('question-area').innerHTML = '';
+  document.getElementById('progress-fill').style.width = '100%';
+  document.getElementById('progress-text').textContent = QUESTIONS.length + '/' + QUESTIONS.length;
+
+  const pct = Math.round((correctCount / QUESTIONS.length) * 100);
+  let title, message;
+  if (pct === 100) { title = 'Perfect Score!'; message = 'You know it all.'; }
+  else if (pct >= 80) { title = 'Impressive!'; message = 'You really know your stuff.'; }
+  else if (pct >= 60) { title = 'Well Done!'; message = 'Solid knowledge across the board.'; }
+  else if (pct >= 40) { title = 'Not Bad!'; message = 'Room to grow — come back next week!'; }
+  else { title = 'Keep Learning!'; message = 'Better luck next week.'; }
+
+  document.getElementById('results-title').textContent = title;
+  document.getElementById('score-big').textContent = correctCount + '/' + QUESTIONS.length;
+  document.getElementById('score-label').textContent = pct + '% correct';
+  document.getElementById('score-message').textContent = message;
+  document.getElementById('results').classList.add('active');
+}
+
+function shareResults() {
+  const pct = Math.round((correctCount / QUESTIONS.length) * 100);
+  const text = 'CMU-Q Weekly Trivia ' + PUZZLE_DATE + '\nScore: ' + correctCount + '/' + QUESTIONS.length + ' (' + pct + '%)';
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.btn.primary');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Share Results'; }, 1500);
+  });
+}
+
+init();
+</script>
+</body>
+</html>
