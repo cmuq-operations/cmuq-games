@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minesweeper | CMU-Q Weekly Games</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a2e;
+    --text-dim: #6b7280;
+    --border: #e5e7eb;
+    --red: #C41230;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .container { max-width: 420px; margin: 0 auto; }
+
+  header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding-top: 20px;
+  }
+
+  header .back {
+    display: inline-block;
+    margin-bottom: 12px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  header .back:hover { color: var(--red); }
+  header h1 { font-size: 1.5rem; font-weight: 800; }
+  header p { color: var(--text-dim); font-size: 0.85rem; margin-top: 4px; }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat .icon { font-size: 1.1rem; }
+
+  .face-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    font-size: 1.3rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s;
+  }
+
+  .face-btn:hover { transform: scale(1.1); }
+  .face-btn:active { transform: scale(0.95); }
+
+  /* Grid */
+  .grid-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .grid {
+    display: grid;
+    gap: 2px;
+  }
+
+  .cell {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    border: none;
+    font-family: var(--font);
+    font-weight: 800;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .cell.hidden {
+    background: #d1d5db;
+  }
+
+  .cell.hidden:hover {
+    background: #bfc4cc;
+  }
+
+  .cell.revealed {
+    background: #f3f4f6;
+    cursor: default;
+  }
+
+  .cell.mine-hit {
+    background: #fee2e2;
+  }
+
+  .cell.flagged {
+    background: #dbeafe;
+  }
+
+  .cell.flagged::after {
+    content: '\1F6A9';
+    font-size: 1rem;
+  }
+
+  /* Number colors */
+  .cell.n1 { color: #2563eb; }
+  .cell.n2 { color: #16a34a; }
+  .cell.n3 { color: #dc2626; }
+  .cell.n4 { color: #7c3aed; }
+  .cell.n5 { color: #b45309; }
+  .cell.n6 { color: #0891b2; }
+  .cell.n7 { color: #1a1a2e; }
+  .cell.n8 { color: #6b7280; }
+
+  /* Mode toggle (for mobile flagging) */
+  .mode-bar {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .mode-btn {
+    padding: 8px 20px;
+    border-radius: 20px;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    font-family: var(--font);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .mode-btn.active {
+    border-color: var(--text);
+    background: var(--text);
+    color: #fff;
+  }
+
+  /* Message overlay */
+  .message {
+    display: none;
+    text-align: center;
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 10px;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .message.active { display: block; }
+
+  .message.win {
+    background: #dcfce7;
+    border: 1px solid #86efac;
+  }
+
+  .message.lose {
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+  }
+
+  .message h2 { font-size: 1.1rem; margin-bottom: 4px; }
+  .message p { font-size: 0.85rem; color: var(--text-dim); }
+
+  .share-btn {
+    margin-top: 10px;
+    padding: 8px 20px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-family: var(--font);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .share-btn:hover { background: #f0f0f0; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 380px) {
+    .cell { font-size: 0.75rem; }
+    .grid-wrapper { padding: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <a href="index.html" class="back">&larr; All Games</a>
+    <h1>Minesweeper</h1>
+    <p>Clear the board without hitting a mine</p>
+  </header>
+
+  <div class="status-bar">
+    <div class="stat"><span class="icon">💣</span><span id="mine-count">10</span></div>
+    <button class="face-btn" id="face-btn" onclick="initGame()">🙂</button>
+    <div class="stat"><span class="icon">⏱</span><span id="timer">0:00</span></div>
+  </div>
+
+  <div class="grid-wrapper">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="mode-bar">
+    <button class="mode-btn active" id="mode-dig" onclick="setMode('dig')">⛏ Dig</button>
+    <button class="mode-btn" id="mode-flag" onclick="setMode('flag')">🚩 Flag</button>
+  </div>
+
+  <div class="message" id="message">
+    <h2 id="msg-title"></h2>
+    <p id="msg-text"></p>
+    <button class="share-btn" onclick="shareResult()">Share Result</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   WEEKLY FEEDBACK — Paste notes here before requesting updates
+
+   Difficulty: (too easy | just right | too hard)
+   Notes:
+   -
+   ============================================================ */
+
+/* ============================================================
+   WEEKLY PUZZLE CONFIG — Edit this section each week
+
+   ROWS / COLS: grid dimensions
+   MINES: number of mines
+   ============================================================ */
+const ROWS = 8;
+const COLS = 8;
+const MINES = 10;
+/* ============================================================ */
+
+let board = [];       // 2D: { mine, revealed, flagged, adjacent }
+let gameState = 'waiting'; // waiting | playing | won | lost
+let mode = 'dig';    // dig | flag
+let timerInterval = null;
+let seconds = 0;
+let firstClick = true;
+
+function initGame() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  seconds = 0;
+  firstClick = true;
+  gameState = 'waiting';
+  document.getElementById('timer').textContent = '0:00';
+  document.getElementById('mine-count').textContent = MINES;
+  document.getElementById('face-btn').textContent = '🙂';
+  document.getElementById('message').classList.remove('active', 'win', 'lose');
+  setMode('dig');
+
+  // Build empty board
+  board = [];
+  for (let r = 0; r < ROWS; r++) {
+    board[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      board[r][c] = { mine: false, revealed: false, flagged: false, adjacent: 0 };
+    }
+  }
+
+  renderGrid();
+}
+
+function placeMines(safeR, safeC) {
+  // Place mines avoiding the first-click cell and its neighbors
+  let placed = 0;
+  while (placed < MINES) {
+    const r = Math.floor(Math.random() * ROWS);
+    const c = Math.floor(Math.random() * COLS);
+    if (board[r][c].mine) continue;
+    if (Math.abs(r - safeR) <= 1 && Math.abs(c - safeC) <= 1) continue;
+    board[r][c].mine = true;
+    placed++;
+  }
+
+  // Calculate adjacency counts
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c].mine) continue;
+      let count = 0;
+      forNeighbors(r, c, (nr, nc) => {
+        if (board[nr][nc].mine) count++;
+      });
+      board[r][c].adjacent = count;
+    }
+  }
+}
+
+function forNeighbors(r, c, fn) {
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) fn(nr, nc);
+    }
+  }
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = 'repeat(' + COLS + ', 1fr)';
+  grid.innerHTML = '';
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+
+      const b = board[r][c];
+
+      if (b.revealed) {
+        cell.classList.add('revealed');
+        if (b.mine) {
+          cell.classList.add('mine-hit');
+          cell.textContent = '💥';
+        } else if (b.adjacent > 0) {
+          cell.textContent = b.adjacent;
+          cell.classList.add('n' + b.adjacent);
+        }
+      } else if (b.flagged) {
+        cell.classList.add('hidden', 'flagged');
+      } else {
+        cell.classList.add('hidden');
+      }
+
+      // Click handlers
+      cell.addEventListener('click', (e) => handleClick(r, c, e));
+      cell.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        toggleFlag(r, c);
+      });
+
+      grid.appendChild(cell);
+    }
+  }
+}
+
+function handleClick(r, c, e) {
+  if (gameState === 'won' || gameState === 'lost') return;
+
+  if (mode === 'flag') {
+    toggleFlag(r, c);
+    return;
+  }
+
+  const b = board[r][c];
+  if (b.revealed || b.flagged) return;
+
+  // First click — place mines ensuring safe opening
+  if (firstClick) {
+    firstClick = false;
+    gameState = 'playing';
+    placeMines(r, c);
+    startTimer();
+  }
+
+  if (b.mine) {
+    gameOver(false);
+    return;
+  }
+
+  reveal(r, c);
+  checkWin();
+  renderGrid();
+}
+
+function toggleFlag(r, c) {
+  if (gameState === 'won' || gameState === 'lost') return;
+  const b = board[r][c];
+  if (b.revealed) return;
+
+  b.flagged = !b.flagged;
+  updateMineCount();
+  renderGrid();
+}
+
+function reveal(r, c) {
+  const b = board[r][c];
+  if (b.revealed || b.flagged || b.mine) return;
+  b.revealed = true;
+
+  // Flood fill for empty cells
+  if (b.adjacent === 0) {
+    forNeighbors(r, c, (nr, nc) => reveal(nr, nc));
+  }
+}
+
+function checkWin() {
+  let unrevealed = 0;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (!board[r][c].revealed && !board[r][c].mine) unrevealed++;
+    }
+  }
+  if (unrevealed === 0) gameOver(true);
+}
+
+function gameOver(won) {
+  clearInterval(timerInterval);
+  gameState = won ? 'won' : 'lost';
+  document.getElementById('face-btn').textContent = won ? '😎' : '💀';
+
+  // Reveal all mines
+  if (!won) {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (board[r][c].mine) board[r][c].revealed = true;
+      }
+    }
+  }
+
+  renderGrid();
+
+  const msg = document.getElementById('message');
+  msg.classList.add('active', won ? 'win' : 'lose');
+  document.getElementById('msg-title').textContent = won ? 'You cleared it!' : 'Boom!';
+  document.getElementById('msg-text').textContent = won
+    ? 'Cleared in ' + formatTime(seconds) + '.'
+    : 'Hit a mine at ' + formatTime(seconds) + '. Try again!';
+}
+
+function updateMineCount() {
+  let flags = 0;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c].flagged) flags++;
+    }
+  }
+  document.getElementById('mine-count').textContent = MINES - flags;
+}
+
+function startTimer() {
+  seconds = 0;
+  timerInterval = setInterval(() => {
+    seconds++;
+    document.getElementById('timer').textContent = formatTime(seconds);
+  }, 1000);
+}
+
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return m + ':' + (sec < 10 ? '0' : '') + sec;
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('mode-dig').classList.toggle('active', m === 'dig');
+  document.getElementById('mode-flag').classList.toggle('active', m === 'flag');
+}
+
+function shareResult() {
+  const won = gameState === 'won';
+  const text = 'CMU-Q Minesweeper (' + ROWS + 'x' + COLS + ', ' + MINES + ' mines)\n'
+    + (won ? 'Cleared in ' + formatTime(seconds) + '!' : 'Hit a mine at ' + formatTime(seconds))
+    + '\n' + generateBoardEmoji();
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.share-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Share Result'; }, 1500);
+  });
+}
+
+function generateBoardEmoji() {
+  let s = '';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const b = board[r][c];
+      if (b.mine && b.revealed) s += '💥';
+      else if (b.flagged) s += '🚩';
+      else if (b.revealed) s += (b.adjacent > 0 ? '🔢' : '⬜');
+      else s += '⬛';
+    }
+    s += '\n';
+  }
+  return s;
+}
+
+initGame();
+</script>
+</body>
+</html>
