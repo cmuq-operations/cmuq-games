@@ -13,7 +13,7 @@ window.Leaderboard = (function () {
 
   // ── Configuration ──────────────────────────────────────────
   // Replace with your deployed Google Apps Script web app URL
-  var ENDPOINT = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
+  var ENDPOINT = 'https://script.google.com/a/macros/andrew.cmu.edu/s/AKfycbx636xgPVWvZbA4XqPNkkHq825ou0xD3uxV6KjfoJkQHNbGX0wwG7BYJSCaN8Ebh5xD/exec';
 
   // ── Player Identity ────────────────────────────────────────
   // Reads Mailchimp merge tags from URL params, caches in sessionStorage.
