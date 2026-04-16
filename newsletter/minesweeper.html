@@ -274,11 +274,59 @@
 
    ROWS / COLS: grid dimensions
    MINES: number of mines
+
+   The board is auto-generated from the current week's date.
+   All players see the same mine layout each week. No manual
+   update needed — the seed rotates automatically.
    ============================================================ */
 const ROWS = 8;
 const COLS = 8;
 const MINES = 10;
 /* ============================================================ */
+
+// ── Seeded PRNG (mulberry32) ─────────────────────────────────
+// Deterministic random from a 32-bit integer seed.
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Seed from current week: hash the Monday date string
+function getWeekSeed() {
+  var now = new Date();
+  var day = now.getDay();
+  var diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  var monday = new Date(now.getFullYear(), now.getMonth(), diff);
+  var str = monday.toISOString().slice(0, 10); // e.g. "2026-04-13"
+  var hash = 0;
+  for (var i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
+}
+
+var weeklyRng = mulberry32(getWeekSeed());
+
+// Pre-generate this week's mine positions (before any first-click adjustment)
+var preplacedMines = (function() {
+  var positions = [];
+  var used = {};
+  while (positions.length < MINES) {
+    var r = Math.floor(weeklyRng() * ROWS);
+    var c = Math.floor(weeklyRng() * COLS);
+    var key = r + ',' + c;
+    if (!used[key]) {
+      used[key] = true;
+      positions.push([r, c]);
+    }
+  }
+  return positions;
+})();
 
 let board = [];       // 2D: { mine, revealed, flagged, adjacent }
 let gameState = 'waiting'; // waiting | playing | won | lost
@@ -312,15 +360,37 @@ function initGame() {
 }
 
 function placeMines(safeR, safeC) {
-  // Place mines avoiding the first-click cell and its neighbors
-  let placed = 0;
-  while (placed < MINES) {
-    const r = Math.floor(Math.random() * ROWS);
-    const c = Math.floor(Math.random() * COLS);
-    if (board[r][c].mine) continue;
+  // Start from the weekly pre-generated positions.
+  // If any mine lands in the first-click safe zone, relocate it
+  // deterministically using the seeded RNG.
+  var mineSet = {};
+  var mines = [];
+
+  for (var i = 0; i < preplacedMines.length; i++) {
+    var pos = preplacedMines[i];
+    if (Math.abs(pos[0] - safeR) <= 1 && Math.abs(pos[1] - safeC) <= 1) {
+      continue; // skip — in safe zone, will relocate below
+    }
+    var key = pos[0] + ',' + pos[1];
+    mineSet[key] = true;
+    mines.push(pos);
+  }
+
+  // Relocate displaced mines using seeded RNG
+  var relocateRng = mulberry32(getWeekSeed() + safeR * COLS + safeC);
+  while (mines.length < MINES) {
+    var r = Math.floor(relocateRng() * ROWS);
+    var c = Math.floor(relocateRng() * COLS);
+    var key = r + ',' + c;
+    if (mineSet[key]) continue;
     if (Math.abs(r - safeR) <= 1 && Math.abs(c - safeC) <= 1) continue;
-    board[r][c].mine = true;
-    placed++;
+    mineSet[key] = true;
+    mines.push([r, c]);
+  }
+
+  // Place mines on board
+  for (var i = 0; i < mines.length; i++) {
+    board[mines[i][0]][mines[i][1]].mine = true;
   }
 
   // Calculate adjacency counts
@@ -470,11 +540,17 @@ function gameOver(won) {
     ? 'Cleared in ' + formatTime(seconds) + '.'
     : 'Hit a mine at ' + formatTime(seconds) + '. Try again!';
 
-  // Leaderboard (wins only)
+  // Leaderboard (wins only) — use weekly Monday date to match board seed
+  var weekDate = (function() {
+    var now = new Date();
+    var day = now.getDay();
+    var diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(now.getFullYear(), now.getMonth(), diff).toISOString().slice(0, 10);
+  })();
   if (won) {
-    Leaderboard.submit({ game: 'minesweeper', date: new Date().toISOString().slice(0, 10), score: seconds, metric: 'seconds', display: formatTime(seconds) });
+    Leaderboard.submit({ game: 'minesweeper', date: weekDate, score: seconds, metric: 'seconds', display: formatTime(seconds) });
   }
-  Leaderboard.show('leaderboard', 'minesweeper', new Date().toISOString().slice(0, 10));
+  Leaderboard.show('leaderboard', 'minesweeper', weekDate);
 }
 
 function updateMineCount() {
