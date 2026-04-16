@@ -272,6 +272,7 @@ window.Leaderboard = (function () {
   }
 
   // ── Auto-init: read URL params on load ─────────────────────
+  // Auto-init: store identity + update links
   (function init() {
     var params = new URLSearchParams(window.location.search);
     var pid = params.get('pid');
@@ -282,18 +283,29 @@ window.Leaderboard = (function () {
       localStorage.setItem('lb_pid', pid);
       localStorage.setItem('lb_name', name);
     }
-
-    // Preserve identity params on all internal links (back links, etc.)
-    var search = window.location.search;
-    if (search) {
-      document.querySelectorAll('a[href]').forEach(function(link) {
-        var href = link.getAttribute('href');
-        if (href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.includes('?')) {
-          link.setAttribute('href', href + search);
-        }
-      });
-    }
   })();
+
+  // Preserve identity params on all internal links
+  function updateLinks() {
+    var search = window.location.search;
+    if (!search) return;
+    var links = document.getElementsByTagName('a');
+    for (var i = 0; i < links.length; i++) {
+      var href = links[i].getAttribute('href');
+      if (!href) continue;
+      if (href.indexOf('http') === 0) continue;
+      if (href.indexOf('mailto:') === 0) continue;
+      if (href.indexOf('?') !== -1) continue;
+      links[i].setAttribute('href', href + search);
+    }
+  }
+
+  // Run on DOMContentLoaded if DOM not ready, otherwise run now
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', updateLinks);
+  } else {
+    updateLinks();
+  }
 
   // ── Public API ─────────────────────────────────────────────
   return {
