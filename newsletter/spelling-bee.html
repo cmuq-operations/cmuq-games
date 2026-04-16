@@ -292,6 +292,9 @@
     <div class="found-list collapsed" id="found-list"></div>
   </div>
 
+  <div style="text-align:center;margin-top:16px;">
+    <button class="btn primary" id="submit-score-btn" onclick="submitToLeaderboard()" style="display:none;">Submit Score to Leaderboard</button>
+  </div>
   <div id="leaderboard"></div>
 </div>
 <script src="leaderboard.js"></script>
@@ -552,11 +555,23 @@ function submitWord() {
   renderRank();
   renderFoundWords();
 
-  // Leaderboard — update score after each valid word
+  // Show the submit-to-leaderboard button once the player has found at least one word
+  if (foundWords.length >= 1) {
+    document.getElementById('submit-score-btn').style.display = '';
+  }
+}
+
+function submitToLeaderboard() {
   var invertedScore = PUZZLE.maxScore - score;
   var curRank = getRank(score);
   Leaderboard.submit({ game: 'spelling-bee', date: PUZZLE.date, score: invertedScore, metric: 'score', display: 'Score: ' + score + ' — ' + curRank });
   Leaderboard.show('leaderboard', 'spelling-bee', PUZZLE.date);
+
+  // Update button to show it's been submitted
+  var btn = document.getElementById('submit-score-btn');
+  btn.textContent = 'Score Submitted!';
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
 }
 
 function renderRank() {
